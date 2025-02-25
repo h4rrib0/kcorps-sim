@@ -14,6 +14,7 @@ interface HexTileProps {
   isValidPlacement?: boolean;
   onClick?: () => void;
   debugOpacity?: number; // Added for adjustable debug text opacity
+  editorMode?: boolean; // Whether in map editor mode
 }
 
 const terrainColors = {
@@ -21,6 +22,9 @@ const terrainColors = {
   locale: '#c8e6c9',
   mountain: '#a1887f',
   water: '#bbdefb',
+  forest: '#66bb6a', // Dark green for forests
+  desert: '#ffe082', // Sand color for desert
+  swamp: '#8d6e63', // Brown for swamp
 };
 
 const HexTile: React.FC<HexTileProps> = ({
@@ -35,6 +39,7 @@ const HexTile: React.FC<HexTileProps> = ({
   isValidPlacement = false,
   onClick,
   debugOpacity = 0.5, // default opacity
+  editorMode = false,
 }) => {
   const { x, y } = hexToPixel(coord, size);
   const points = hexagonPoints(size);
@@ -88,6 +93,7 @@ const HexTile: React.FC<HexTileProps> = ({
       {/* Placement indicator removed */}
       
       {/* Terrain markers */}
+      {/* Terrain indicators */}
       {terrain === 'mountain' && (
         <path
           d="M0,-10 L10,10 L-10,10 Z"
@@ -111,6 +117,26 @@ const HexTile: React.FC<HexTileProps> = ({
           strokeWidth="2"
           transform="translate(0,5)"
         />
+      )}
+      {terrain === 'forest' && (
+        <g transform="translate(0,-2) scale(0.4)">
+          <path d="M0,-15 L10,0 L5,0 L12,10 L-12,10 L-5,0 L-10,0 Z" fill="#2e7d32" />
+          <rect x="-2" y="10" width="4" height="5" fill="#5d4037" />
+        </g>
+      )}
+      {terrain === 'desert' && (
+        <g transform="translate(0,0) scale(0.5)">
+          <circle cx="-5" cy="5" r="3" fill="#ffd54f" />
+          <circle cx="5" cy="-3" r="2" fill="#ffd54f" />
+          <circle cx="6" cy="6" r="2" fill="#ffd54f" />
+          <circle cx="-7" cy="-5" r="2" fill="#ffd54f" />
+        </g>
+      )}
+      {terrain === 'swamp' && (
+        <g transform="translate(0,0) scale(0.4)">
+          <path d="M-10,5 Q-5,-2 0,5 T10,5" stroke="#6d4c41" fill="none" strokeWidth="2" />
+          <path d="M-8,0 Q-3,-7 2,0 T12,0" stroke="#6d4c41" fill="none" strokeWidth="2" />
+        </g>
       )}
 
       {/* Debug coordinates */}

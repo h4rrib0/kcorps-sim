@@ -1,7 +1,12 @@
 // actions.ts - Action types for the game reducer
 import { Position, Unit, Pilot, Segment, Subsystem } from './models';
+import { TerrainType, MapData, HexCoord } from '../../utils/hexCalculations';
+import { GameState } from './state';
 
 export type GameAction = 
+  // State persistence actions
+  | { type: 'LOAD_STATE'; state: GameState }
+  | { type: 'RESET_STATE' }
   | { type: 'SELECT_UNIT'; unitId: string }
   | { type: 'SELECT_PILOT'; pilotId: string }
   | { type: 'ASSIGN_PILOT'; unitId: string; pilotId: string }
@@ -46,4 +51,13 @@ export type GameAction =
   | { type: 'REMOVE_SUBSYSTEM'; unitId: string; subsystemId: string }
   | { type: 'EXECUTE_ATTACK' }
   | { type: 'EXECUTE_SPECIAL_MOVE' }
-  | { type: 'NEXT_TURN' };
+  | { type: 'NEXT_TURN' }
+  // Map-related actions
+  | { type: 'ENTER_EDITOR_MODE' }
+  | { type: 'EXIT_EDITOR_MODE' }
+  | { type: 'SELECT_TERRAIN_TYPE'; terrainType: TerrainType | undefined }
+  | { type: 'SET_TILE_TERRAIN'; coord: HexCoord; terrainType: TerrainType }
+  | { type: 'ADD_MAP'; map: MapData }
+  | { type: 'UPDATE_MAP'; mapId: string; changes: Partial<MapData> }
+  | { type: 'DELETE_MAP'; mapId: string }
+  | { type: 'SELECT_MAP'; mapId: string };

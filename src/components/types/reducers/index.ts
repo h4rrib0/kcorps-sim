@@ -13,6 +13,7 @@ import {
   handleExitSegmentTargetingMode, handleSelectTargetSegment
 } from './segmentReducers';
 import { handleMoveUnitForward, handleRotateUnit } from './movementReducers';
+import { mapReducers } from './mapReducers';
 import { addLogEntry } from './utils';
 
 // Helper function to handle the NEXT_TURN action
@@ -118,7 +119,36 @@ function handleUnplaceUnit(state: GameState, action: GameAction): GameState {
 
 // Main reducer
 export function gameReducer(state: GameState, action: GameAction): GameState {
+  // Handle state persistence actions first
+  if (action.type === 'LOAD_STATE') {
+    return action.state;
+  }
   
+  if (action.type === 'RESET_STATE') {
+    return {
+      ...state,
+      units: [],
+      pilots: [],
+      log: [],
+      turn: 0
+    };
+  }
+
+  // Handle map-related actions
+  if (
+    action.type === 'ENTER_EDITOR_MODE' ||
+    action.type === 'EXIT_EDITOR_MODE' ||
+    action.type === 'SELECT_TERRAIN_TYPE' ||
+    action.type === 'SET_TILE_TERRAIN' ||
+    action.type === 'ADD_MAP' ||
+    action.type === 'UPDATE_MAP' ||
+    action.type === 'DELETE_MAP' ||
+    action.type === 'SELECT_MAP'
+  ) {
+    return mapReducers(state, action);
+  }
+  
+  // Other game actions
   switch (action.type) {
     case 'ENTER_PLACEMENT_MODE':
       return {

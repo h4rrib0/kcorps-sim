@@ -1,5 +1,6 @@
 // state.ts - Game state and actions
 import { Unit, Pilot, Segment } from './models';
+import { MapData } from '../../utils/hexCalculations';
 
 export interface GameState {
   units: Unit[];
@@ -23,6 +24,12 @@ export interface GameState {
   log: string[];
   error?: string; // Optional error message for UI display
   showLog: boolean; // Whether to show the log panel
+  
+  // Map related
+  maps: MapData[];
+  selectedMapId?: string;
+  editorMode: boolean;
+  selectedTerrain?: string;
 }
 
 // Initial state for the game
@@ -40,5 +47,18 @@ export const initialGameState: GameState = {
   phase: 'movement',
   initiativeOrder: [],
   log: [],
-  showLog: true
+  showLog: true,
+  
+  // Map related
+  maps: [
+    // Default empty map
+    {
+      id: 'default',
+      name: 'Default Map',
+      terrain: {},
+      radius: 4,
+      description: 'Default empty map'
+    }
+  ],
+  editorMode: false
 };

@@ -11,6 +11,7 @@ interface HexGridProps {
   hexSize?: number;
   terrain?: Record<string, TerrainType>;
   onTileClick?: (coord: HexCoord) => void;
+  useSelectedMap?: boolean; // Whether to use the selected map from state
 }
 
 
@@ -19,12 +20,25 @@ const HexGrid: React.FC<HexGridProps> = ({
     hexSize: defaultHexSize = 40,
     terrain = {},
     onTileClick,
+    useSelectedMap = true,
 }) => {
     const [selectedTile, setSelectedTile] = useState<HexCoord | null>(null);
     const [hexSize, setHexSize] = useState(defaultHexSize);
-    const hexes = generateHexGrid(radius);
-    const containerRef = useRef<HTMLDivElement>(null);
     const { state, dispatch } = useGameState();
+    
+    // Get the selected map from state
+    const selectedMap = useSelectedMap && state.selectedMapId 
+        ? state.maps.find(map => map.id === state.selectedMapId)
+        : null;
+    
+    // Use the selected map's radius and terrain if available
+    const effectiveRadius = selectedMap ? selectedMap.radius : radius;
+    const effectiveTerrain = selectedMap ? selectedMap.terrain : terrain;
+    
+    // Generate hex grid based on the effective radius
+    const hexes = generateHexGrid(effectiveRadius);
+    
+    const containerRef = useRef<HTMLDivElement>(null);
     
     // Simple handlers for increasing/decreasing hex size
     const increaseSize = () => {
@@ -98,9 +112,10 @@ const HexGrid: React.FC<HexGridProps> = ({
     //     return () => clearTimeout(timer);
     // }, []);
 
-    // Calculate SVG viewport size based on current hex size
-    const width = hexSize * Math.sqrt(3) * (2 * radius + 1);
-    const height = hexSize * 3/2 * (2 * radius + 1);
+    // Calculate SVG viewport size based on current hex size and effective radius
+    // Add extra padding (3 instead of 1) to ensure hexes at the edges are fully visible
+    const width = hexSize * Math.sqrt(3) * (2 * effectiveRadius + 3);
+    const height = hexSize * 3/2 * (2 * effectiveRadius + 3);
     
     // Center the grid in the viewport
     const centerX = width / 2;
@@ -207,7 +222,8 @@ const HexGrid: React.FC<HexGridProps> = ({
         }
     };
 
-    const margin = hexSize;
+    // Add more margin around the grid to ensure hexes at the edges are fully visible
+    const margin = hexSize * 2;
     const svgWidth = width + 2 * margin;
     const svgHeight = height + 2 * margin;
 
@@ -293,7 +309,7 @@ const HexGrid: React.FC<HexGridProps> = ({
                             display: 'block'
                         }}
                 >
-                    <g transform={`translate(${svgWidth/2},${svgHeight/2})`}>
+                    <g transform={`translate(${svgWidth/2},${svgHeight/2 + hexSize})`}>
                         {hexes.map((coord) => {
                             const key = `${coord.q},${coord.r}`;
                             const isSelected = selectedTile?.q === coord.q && selectedTile?.r === coord.r;
@@ -324,7 +340,7 @@ const HexGrid: React.FC<HexGridProps> = ({
                                     key={key}
                                     coord={coord}
                                     size={hexSize}
-                                    terrain={terrain[key] || 'blank'}
+                                    terrain={effectiveTerrain[key] || 'blank'}
                                     isSelected={isSelected}
                                     isAttackable={isAttackable}
                                     isTargetable={isTargetable}

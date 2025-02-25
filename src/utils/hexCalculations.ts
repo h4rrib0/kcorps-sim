@@ -1,10 +1,18 @@
 // src/utils/hexCalculations.ts
 
-export type TerrainType = 'blank' | 'locale' | 'mountain' | 'water';
+export type TerrainType = 'blank' | 'locale' | 'mountain' | 'water' | 'forest' | 'desert' | 'swamp';
 
 export interface HexCoord {
   q: number;  // axial coordinates
   r: number;
+}
+
+export interface MapData {
+  id: string;
+  name: string;
+  terrain: Record<string, TerrainType>;
+  radius: number;
+  description?: string;
 }
 
 // Convert axial coordinates to pixel positions
