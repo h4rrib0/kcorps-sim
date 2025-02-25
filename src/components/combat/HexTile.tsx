@@ -8,6 +8,9 @@ interface HexTileProps {
   terrain: TerrainType;
   isHighlighted?: boolean;
   isSelected?: boolean;
+  isAttackable?: boolean;
+  isTargetable?: boolean;
+  isAttackerTile?: boolean;
   onClick?: () => void;
   debugOpacity?: number; // Added for adjustable debug text opacity
 }
@@ -25,6 +28,9 @@ const HexTile: React.FC<HexTileProps> = ({
   terrain,
   isHighlighted = false,
   isSelected = false,
+  isAttackable = false,
+  isTargetable = false,
+  isAttackerTile = false,
   onClick,
   debugOpacity = 0.5, // default opacity
 }) => {
@@ -40,11 +46,42 @@ const HexTile: React.FC<HexTileProps> = ({
       {/* Base hex */}
       <polygon
         points={points}
-        fill={terrainColors[terrain]}
-        fillOpacity={debugOpacity} // Apply debug opacity to the fill
-        stroke={isSelected ? '#2196f3' : isHighlighted ? '#4caf50' : '#ccc'}
-        strokeWidth={isSelected || isHighlighted ? 2 : 1}
+        fill={
+          isAttackerTile ? '#bbffd0' : 
+          isAttackable ? '#ffcccc' : 
+          isTargetable ? '#e1bee7' : // Light purple for special move targeting
+          terrainColors[terrain]
+        }
+        fillOpacity={isAttackable || isTargetable || isAttackerTile ? 0.7 : debugOpacity}
+        stroke={
+          isSelected ? '#2196f3' : 
+          isHighlighted ? '#4caf50' : 
+          isAttackable && !isAttackerTile ? '#ff6b6b' :
+          isTargetable && !isAttackerTile ? '#9c27b0' : // Purple stroke for special move
+          '#ccc'
+        }
+        strokeWidth={isSelected || isHighlighted || isAttackable || isTargetable ? 2 : 1}
       />
+      
+      {/* Attack indicator pattern */}
+      {isAttackable && !isAttackerTile && (
+        <path
+          d="M-8,-8 L8,8 M-8,8 L8,-8"
+          stroke="#ff6b6b"
+          strokeWidth="1.5"
+          strokeOpacity="0.7"
+        />
+      )}
+      
+      {/* Special move indicator pattern */}
+      {isTargetable && !isAttackerTile && (
+        <path
+          d="M0,-10 L0,10 M-10,0 L10,0"
+          stroke="#9c27b0"
+          strokeWidth="1.5"
+          strokeOpacity="0.7"
+        />
+      )}
       
       {/* Terrain markers */}
       {terrain === 'mountain' && (

@@ -1,7 +1,7 @@
 // context.tsx
 import React from 'react';
 import { createContext, useContext, useReducer } from 'react';
-import { GameState, GameAction, gameReducer } from './types';
+import { GameState, GameAction, gameReducer, initialGameState } from './types';
 
 const GameStateContext = createContext<{
   state: GameState;
@@ -9,13 +9,7 @@ const GameStateContext = createContext<{
 } | null>(null);
 
 export function GameStateProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(gameReducer, {
-    units: [],
-    turn: 1,
-    phase: 'movement',
-    initiativeOrder: [],
-    log: []
-  });
+  const [state, dispatch] = useReducer(gameReducer, initialGameState);
 
   return (
     <GameStateContext.Provider value={{ state, dispatch }}>
