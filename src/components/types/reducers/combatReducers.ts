@@ -3,7 +3,7 @@ import { GameState } from '../state';
 import { GameAction } from '../actions';
 import { addLogEntry, addErrorEntry } from './utils';
 import { getAttackableTiles, getSpecialMoveTargets } from '../../../utils/hexCalculations';
-import { SpecialMove, Unit } from '../models';
+import { SpecialMove, Unit, Segment } from '../models';
 
 // Handle entering attack mode
 export function handleEnterAttackMode(state: GameState, action: GameAction): GameState {
@@ -23,6 +23,7 @@ export function handleEnterAttackMode(state: GameState, action: GameAction): Gam
       attackMode: true,
       selectedUnitId: action.unitId,
       targetUnitId: undefined,
+      targetSegmentId: undefined,
       selectedWeaponId: undefined,
       attackableTiles: []
     };
@@ -43,6 +44,7 @@ export function handleEnterAttackMode(state: GameState, action: GameAction): Gam
     attackMode: true,
     selectedUnitId: action.unitId,
     targetUnitId: undefined,
+    targetSegmentId: undefined,
     selectedWeaponId: undefined,
     attackableTiles
   };
@@ -56,6 +58,7 @@ export function handleExitAttackMode(state: GameState, action: GameAction ): Gam
     ...state,
     attackMode: false,
     targetUnitId: undefined,
+    targetSegmentId: undefined,
     selectedWeaponId: undefined,
     attackableTiles: []
   };
@@ -75,7 +78,7 @@ export function handleSelectWeapon(state: GameState, action: GameAction): GameSt
     };
   }
   
-  const weapon = attacker.weapons.find(w => w.name === action.weaponId);
+  const weapon = attacker.weapons.find(w => w.id === action.weaponId);
   if (!weapon) {
     return {
       ...state,
@@ -101,24 +104,60 @@ export function handleSelectWeapon(state: GameState, action: GameAction): GameSt
   };
 }
 
+// Calculate if a subsystem is functional based on its segment durability
+function isSubsystemFunctional(
+  subsystemId: string, 
+  subsystemThreshold: number,
+  segments: Segment[],
+  segmentId: string | undefined = undefined
+): boolean {
+  // If a specific segment is provided, check only that segment
+  if (segmentId) {
+    const segment = segments.find(s => s.id === segmentId);
+    if (segment && segment.subsystemIds.includes(subsystemId)) {
+      const durabilityPercentage = (segment.durability / segment.maxDurability) * 100;
+      return durabilityPercentage >= subsystemThreshold;
+    }
+    return true; // If subsystem is not in this segment, it's considered functional
+  }
+  
+  // Otherwise check all segments
+  for (const segment of segments) {
+    if (segment.subsystemIds.includes(subsystemId)) {
+      const durabilityPercentage = (segment.durability / segment.maxDurability) * 100;
+      if (durabilityPercentage < subsystemThreshold) {
+        return false; // Subsystem is damaged in at least one segment
+      }
+    }
+  }
+  
+  return true; // Functional in all segments
+}
+
 // Handle executing an attack
 export function handleExecuteAttack(state: GameState, action: GameAction): GameState {
   // Validate that we have needed values
   if (!state.selectedUnitId || !state.targetUnitId || !state.selectedWeaponId) {
-    return state;
+    return addErrorEntry(state, "Missing required selections for attack");
   }
 
   const attacker = state.units.find(unit => unit.id === state.selectedUnitId);
   const defender = state.units.find(unit => unit.id === state.targetUnitId);
-  const weapon = attacker?.weapons.find(w => w.name === state.selectedWeaponId);
+  const weapon = attacker?.weapons.find(w => w.id === state.selectedWeaponId);
 
   if (!attacker || !defender || !weapon) {
-    return state;
+    return addErrorEntry(state, "Could not find attacker, defender or weapon");
   }
 
   // Prevent attacking self
   if (attacker.id === defender.id) {
     return addLogEntry(state, `Attack failed: A unit cannot target itself!`);
+  }
+
+  // Check if the weapon's subsystem is functional (if it's attached to a subsystem)
+  const weaponSubsystem = attacker.subsystems.find(s => s.weaponId === weapon.id);
+  if (weaponSubsystem && !weaponSubsystem.functional) {
+    return addLogEntry(state, `Attack failed: The ${weapon.name} weapon system is damaged!`);
   }
 
   // Handle targeting validation
@@ -158,43 +197,205 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
   let resultMessage = "";
   
   if (attackHits) {
-    // Calculate damage: Force + Penetration, modified by defender's mass and armor
-    const forceComponent = Math.max(0, weapon.force - Math.floor(defender.mass / 2));
-    const penetrationComponent = Math.max(0, weapon.penetration - defender.armor);
-    damageAmount = forceComponent + penetrationComponent;
+    // Determine which segment to damage
+    const targetSegment = state.targetSegmentId 
+      ? defender.segments.find(s => s.id === state.targetSegmentId)
+      : defender.segments.length > 0 
+        ? defender.segments[Math.floor(Math.random() * defender.segments.length)] // Random segment if none targeted
+        : null;
+        
+    if (!targetSegment && defender.segments.length > 0) {
+      return addLogEntry(state, `Attack missed: Could not determine target segment.`);
+    }
     
-    resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} and hits! ` +
-      `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget}) ` +
-      `Dealing ${damageAmount} damage! (Force ${forceComponent} + Penetration ${penetrationComponent})`;
-  } else {
-    resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses! ` +
-      `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget})`;
-  }
-  
-  // Apply damage if the attack hit
-  const updatedState = {
-    ...state,
-    units: attackHits 
-      ? state.units.map(unit =>
+    // If the mecha has segments, calculate segment-specific damage
+    if (targetSegment) {
+      // Calculate damage: Force + Penetration, modified by defender's mass and segment-specific armor
+      const forceComponent = Math.max(0, weapon.force - Math.floor(defender.mass / 2));
+      const penetrationComponent = Math.max(0, weapon.penetration - targetSegment.armor);
+      damageAmount = forceComponent + penetrationComponent;
+      
+      resultMessage = `${attacker.name} attacks ${defender.name}'s ${targetSegment.name} with ${weapon.name} and hits! ` +
+        `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+        `Dealing ${damageAmount} damage! (Force ${forceComponent} + Penetration ${penetrationComponent})`;
+      
+      // Apply damage to the specific segment (fixed damage calculation)
+      let updatedSegments = defender.segments.map(segment => 
+        segment.id === targetSegment.id
+          ? {
+              ...segment,
+              durability: Math.max(0, segment.durability - damageAmount)
+            }
+          : segment
+      );
+      
+      // Add segment damage details to the result message
+      const damagePercent = Math.round((damageAmount / targetSegment.maxDurability) * 100);
+      const newDurabilityPercent = Math.round((Math.max(0, targetSegment.durability - damageAmount) / targetSegment.maxDurability) * 100);
+      resultMessage += ` ${targetSegment.name} integrity: ${newDurabilityPercent}% (-${damagePercent}%)`;
+      
+      // Check subsystem damage from penetration
+      const penetrationExcess = weapon.penetration - targetSegment.armor;
+      let updatedSubsystems = [...defender.subsystems];
+      
+      // For each point that penetration exceeds armor, roll 2d6
+      for (let i = 0; i < penetrationExcess; i++) {
+        // Roll 2d6 for penetration effects
+        const penRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+        
+        // On a 12, a subsystem in the targeted segment is destroyed
+        if (penRoll === 12) {
+          // Find functional subsystems in this segment
+          const functionalSubsystems = defender.subsystems.filter(s => 
+            targetSegment.subsystemIds.includes(s.id) && 
+            s.functional
+          );
+          
+          // If there are any functional subsystems, damage one randomly
+          if (functionalSubsystems.length > 0) {
+            const targetSubsystem = functionalSubsystems[Math.floor(Math.random() * functionalSubsystems.length)];
+            
+            // Update the subsystem to non-functional
+            updatedSubsystems = updatedSubsystems.map(s => 
+              s.id === targetSubsystem.id ? { ...s, functional: false } : s
+            );
+            
+            // Add to result message
+            resultMessage += ` Critical hit! ${defender.name}'s ${targetSubsystem.name} subsystem is destroyed!`;
+          }
+        }
+      }
+      
+      // Check if any subsystems in the segment are damaged due to durability threshold
+      // Important: calculate using the updated segment durability from updatedSegments, not the original segment
+      const updatedTargetSegment = updatedSegments.find(s => s.id === targetSegment.id)!; 
+      const durabilityPercentage = (updatedTargetSegment.durability / updatedTargetSegment.maxDurability) * 100;
+      
+      for (const subsystem of defender.subsystems) {
+        if (targetSegment.subsystemIds.includes(subsystem.id) && 
+            subsystem.functional && 
+            durabilityPercentage < subsystem.durabilityThreshold) {
+          
+          // Update the subsystem to non-functional
+          updatedSubsystems = updatedSubsystems.map(s => 
+            s.id === subsystem.id ? { ...s, functional: false } : s
+          );
+          
+          // Add to result message
+          resultMessage += ` ${defender.name}'s ${subsystem.name} subsystem is damaged!`;
+        }
+      }
+      
+      // Check for force impact effects (Dazed or Downed status)
+      let updatedStatus = { ...defender.status };
+      
+      if (weapon.force > defender.mass) {
+        const forceExcess = weapon.force - defender.mass;
+        const impactRoll = Math.floor(Math.random() * 10) + 1 + forceExcess; // 1d10 + difference
+        
+        if (impactRoll >= 10) {
+          updatedStatus.downed = true;
+          resultMessage += ` The impact knocks ${defender.name} down!`;
+        } 
+        else if (impactRoll >= 7) {
+          updatedStatus.dazed = true;
+          resultMessage += ` The impact dazes ${defender.name}!`;
+        }
+      }
+      
+      // Update the units with the new segment and subsystem state
+      const updatedState = {
+        ...state,
+        units: state.units.map(unit =>
           unit.id === defender.id
+            ? {
+                ...unit,
+                segments: updatedSegments,
+                subsystems: updatedSubsystems,
+                status: updatedStatus
+              }
+            : unit
+        ),
+        attackMode: false,
+        targetUnitId: undefined,
+        targetSegmentId: undefined,
+        selectedWeaponId: undefined,
+        attackableTiles: []
+      };
+      
+      // Add the log entry with the attack result
+      return addLogEntry(updatedState, resultMessage);
+    }
+    // No segments - use old durability system
+    else {
+      // Calculate damage: Force + Penetration, modified by defender's mass and armor
+      const forceComponent = Math.max(0, weapon.force - Math.floor(defender.mass / 2));
+      const penetrationComponent = Math.max(0, weapon.penetration - defender.armor);
+      damageAmount = forceComponent + penetrationComponent;
+      
+      resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} and hits! ` +
+        `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+        `Dealing ${damageAmount} damage! (Force ${forceComponent} + Penetration ${penetrationComponent})`;
+      
+      // Check for force impact effects (Dazed or Downed status)
+      let updatedStatus = { ...defender.status };
+      
+      if (weapon.force > defender.mass) {
+        const forceExcess = weapon.force - defender.mass;
+        const impactRoll = Math.floor(Math.random() * 10) + 1 + forceExcess; // 1d10 + difference
+        
+        if (impactRoll >= 10) {
+          updatedStatus.downed = true;
+          resultMessage += ` The impact knocks ${defender.name} down!`;
+        } 
+        else if (impactRoll >= 7) {
+          updatedStatus.dazed = true;
+          resultMessage += ` The impact dazes ${defender.name}!`;
+        }
+      }
+      
+      // Apply damage to the unit's overall durability
+      const updatedState = {
+        ...state,
+        units: state.units.map(unit =>
+          unit.id === defender.id && unit.durability
             ? {
                 ...unit,
                 durability: {
                   ...unit.durability,
                   current: Math.max(0, unit.durability.current - damageAmount)
-                }
+                },
+                status: updatedStatus
               }
             : unit
-        )
-      : state.units,
-    attackMode: false,
-    targetUnitId: undefined,
-    selectedWeaponId: undefined,
-    attackableTiles: []
-  };
+        ),
+        attackMode: false,
+        targetUnitId: undefined,
+        targetSegmentId: undefined,
+        selectedWeaponId: undefined,
+        attackableTiles: []
+      };
+      
+      // Add the log entry with the attack result
+      return addLogEntry(updatedState, resultMessage);
+    }
+  } else {
+    resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses! ` +
+      `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget})`;
   
-  // Add the log entry with the attack result
-  return addLogEntry(updatedState, resultMessage);
+    // Exit attack mode without applying damage
+    const updatedState = {
+      ...state,
+      attackMode: false,
+      targetUnitId: undefined,
+      targetSegmentId: undefined,
+      selectedWeaponId: undefined,
+      attackableTiles: []
+    };
+    
+    // Add the log entry with the attack result
+    return addLogEntry(updatedState, resultMessage);
+  }
 }
 
 // Handle entering special move mode
@@ -233,6 +434,7 @@ export function handleEnterSpecialMoveMode(state: GameState, action: GameAction)
       specialMoveMode: true,
       selectedUnitId: action.unitId,
       targetUnitId: undefined,
+      targetSegmentId: undefined,
       selectedSpecialMoveId: undefined,
       targetableTiles: []
     };
@@ -261,6 +463,7 @@ export function handleEnterSpecialMoveMode(state: GameState, action: GameAction)
     specialMoveMode: true,
     selectedUnitId: action.unitId,
     targetUnitId: undefined,
+    targetSegmentId: undefined,
     selectedSpecialMoveId: defaultSpecialMove.id,
     targetableTiles
   };
@@ -274,6 +477,7 @@ export function handleExitSpecialMoveMode(state: GameState, action: GameAction):
     ...state,
     specialMoveMode: false,
     targetUnitId: undefined,
+    targetSegmentId: undefined,
     selectedSpecialMoveId: undefined,
     targetableTiles: []
   };
@@ -337,7 +541,7 @@ export function handleSelectSpecialMove(state: GameState, action: GameAction): G
   };
 }
 
-// Complex function to handle executing special moves
+// Modified special move execution to handle segments
 export function handleExecuteSpecialMove(state: GameState, action: GameAction): GameState {
   // Validate that we have needed values
   if (!state.selectedUnitId || !state.selectedSpecialMoveId) {
@@ -415,6 +619,7 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
     ...state,
     specialMoveMode: false,
     targetUnitId: undefined,
+    targetSegmentId: undefined,
     selectedSpecialMoveId: undefined,
     targetableTiles: []
   };
@@ -464,6 +669,13 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
     case 'damage': {
       // For damage moves targeting a specific enemy
       if (selectedMove.targeting === 'enemy' && target) {
+        // Determine which segment to damage (if targeting segments)
+        const targetSegment = state.targetSegmentId && target.segments.length > 0
+          ? target.segments.find(s => s.id === state.targetSegmentId)
+          : target.segments.length > 0 
+            ? target.segments[Math.floor(Math.random() * target.segments.length)] // Random segment
+            : null;
+            
         // Use the same combat calculation as regular attacks
         const sourceUnitPilot = sourceUnit.pilotId ? state.pilots.find(p => p.id === sourceUnit.pilotId) : null;
         const targetPilot = target.pilotId ? state.pilots.find(p => p.id === target.pilotId) : null;
@@ -489,23 +701,78 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
         if (attackHits) {
           // Calculate damage components
           const forceComponent = Math.max(0, moveForce - Math.floor(target.mass / 2));
-          const penetrationComponent = Math.max(0, movePenetration - target.armor);
+          const penetrationComponent = targetSegment
+            ? Math.max(0, movePenetration - targetSegment.armor)
+            : Math.max(0, movePenetration - target.armor);
+            
           damageAmount = forceComponent + penetrationComponent;
           
-          resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} and hits! ` +
-            `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget}) ` +
-            `Dealing ${damageAmount} damage!`;
+          if (targetSegment) {
+            resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name}'s ${targetSegment.name} and hits! ` +
+              `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+              `Dealing ${damageAmount} damage!`;
+          } else {
+            resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} and hits! ` +
+              `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+              `Dealing ${damageAmount} damage!`;
+          }
         } else {
           resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} but misses! ` +
             `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget})`;
         }
         
         // Apply damage if it hit
-        updatedState = {
-          ...updatedState,
-          units: attackHits 
-            ? updatedState.units.map(unit =>
+        if (attackHits) {
+          if (targetSegment) {
+            // Update segments and check subsystems
+            let updatedSegments = target.segments.map(segment => 
+              segment.id === targetSegment.id
+                ? {
+                    ...segment,
+                    durability: Math.max(0, segment.durability - damageAmount)
+                  }
+                : segment
+            );
+            
+            // Check if any subsystems in the segment are now damaged
+            const subsystemsInSegment = target.subsystems.filter(s => 
+              targetSegment.subsystemIds.includes(s.id)
+            );
+            
+            let updatedSubsystems = [...target.subsystems];
+            const newDurability = Math.max(0, targetSegment.durability - damageAmount);
+            const durabilityPercentage = (newDurability / targetSegment.maxDurability) * 100;
+            
+            for (const subsystem of subsystemsInSegment) {
+              if (subsystem.functional && durabilityPercentage < subsystem.durabilityThreshold) {
+                // Update the subsystem to non-functional
+                updatedSubsystems = updatedSubsystems.map(s => 
+                  s.id === subsystem.id ? { ...s, functional: false } : s
+                );
+                
+                // Add to result message
+                resultMessage += ` ${target.name}'s ${subsystem.name} subsystem is damaged!`;
+              }
+            }
+            
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit =>
                 unit.id === target.id
+                  ? {
+                      ...unit,
+                      segments: updatedSegments,
+                      subsystems: updatedSubsystems
+                    }
+                  : unit
+              )
+            };
+          } else if (target.durability) {
+            // Apply damage to overall durability
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit =>
+                unit.id === target.id && unit.durability
                   ? {
                       ...unit,
                       durability: {
@@ -515,8 +782,9 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
                     }
                   : unit
               )
-            : updatedState.units
-        };
+            };
+          }
+        }
         
         return addLogEntry(updatedState, resultMessage);
       }
@@ -548,6 +816,8 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
         
         // Process each unit in the area
         let hitCount = 0;
+        const hitMessages: string[] = [];
+        
         updatedState = {
           ...updatedState,
           units: updatedState.units.map(unit => {
@@ -561,29 +831,78 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
               
               if (unitIsHit) {
                 hitCount++;
-                // Calculate damage for this specific unit
-                const forceComponent = Math.max(0, moveForce - Math.floor(unit.mass / 2));
-                const penetrationComponent = Math.max(0, movePenetration - unit.armor);
-                const unitDamage = forceComponent + penetrationComponent;
                 
-                // Apply damage
-                return {
-                  ...unit,
-                  durability: {
-                    ...unit.durability,
-                    current: Math.max(0, unit.durability.current - unitDamage)
-                  }
-                };
+                // If unit has segments, damage a random segment
+                if (unit.segments.length > 0) {
+                  const randomSegment = unit.segments[Math.floor(Math.random() * unit.segments.length)];
+                  const forceComponent = Math.max(0, moveForce - Math.floor(unit.mass / 2));
+                  const penetrationComponent = Math.max(0, movePenetration - randomSegment.armor);
+                  const segmentDamage = forceComponent + penetrationComponent;
+                  
+                  hitMessages.push(`${unit.name}'s ${randomSegment.name} took ${segmentDamage} damage`);
+                  
+                  // Update segment durability
+                  const updatedSegments = unit.segments.map(segment => 
+                    segment.id === randomSegment.id
+                      ? {
+                          ...segment,
+                          durability: Math.max(0, segment.durability - segmentDamage)
+                        }
+                      : segment
+                  );
+                  
+                  // Check subsystems
+                  const newDurability = Math.max(0, randomSegment.durability - segmentDamage);
+                  const durabilityPercentage = (newDurability / randomSegment.maxDurability) * 100;
+                  
+                  const updatedSubsystems = unit.subsystems.map(subsystem => {
+                    if (randomSegment.subsystemIds.includes(subsystem.id) && 
+                        subsystem.functional && 
+                        durabilityPercentage < subsystem.durabilityThreshold) {
+                      hitMessages.push(`${unit.name}'s ${subsystem.name} subsystem was damaged`);
+                      return { ...subsystem, functional: false };
+                    }
+                    return subsystem;
+                  });
+                  
+                  return {
+                    ...unit,
+                    segments: updatedSegments,
+                    subsystems: updatedSubsystems
+                  };
+                } 
+                // Otherwise damage overall durability
+                else if (unit.durability) {
+                  // Calculate damage for this specific unit
+                  const forceComponent = Math.max(0, moveForce - Math.floor(unit.mass / 2));
+                  const penetrationComponent = Math.max(0, movePenetration - unit.armor);
+                  const unitDamage = forceComponent + penetrationComponent;
+                  
+                  hitMessages.push(`${unit.name} took ${unitDamage} damage`);
+                  
+                  // Apply damage
+                  return {
+                    ...unit,
+                    durability: {
+                      ...unit.durability,
+                      current: Math.max(0, unit.durability.current - unitDamage)
+                    }
+                  };
+                }
               }
             }
             return unit;
           })
         };
         
-        return addLogEntry(
-          updatedState, 
-          `${sourceUnit.name} uses ${selectedMove.name}, hitting ${hitCount} out of ${unitsInArea.length} targets! (Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} = ${attackRoll})`
-        );
+        let resultMessage = `${sourceUnit.name} uses ${selectedMove.name}, hitting ${hitCount} out of ${unitsInArea.length} targets! (Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} = ${attackRoll})`;
+        
+        // Add hit details if there are any
+        if (hitMessages.length > 0) {
+          resultMessage += ` Details: ${hitMessages.join(', ')}.`;
+        }
+        
+        return addLogEntry(updatedState, resultMessage);
       }
       break;
     }
@@ -671,30 +990,65 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
         const healTarget = selectedMove.targeting === 'self' ? sourceUnit : target;
         const healAmount = 5; // Base healing amount
         
-        updatedState = {
-          ...updatedState,
-          units: updatedState.units.map(unit =>
-            unit.id === healTarget?.id
-              ? {
-                  ...unit,
-                  durability: {
-                    ...unit.durability,
-                    current: Math.min(
-                      unit.durability.max, 
-                      unit.durability.current + healAmount
-                    )
+        // If target has segments, heal a random damaged segment or all segments partially
+        if (healTarget && healTarget.segments.length > 0) {
+          // Find damaged segments
+          const damagedSegments = healTarget.segments.filter(s => s.durability < s.maxDurability);
+          
+          if (damagedSegments.length > 0) {
+            // Heal all segments partially
+            const updatedSegments = healTarget.segments.map(segment => ({
+              ...segment,
+              durability: Math.min(segment.maxDurability, segment.durability + Math.ceil(healAmount / damagedSegments.length))
+            }));
+            
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit =>
+                unit.id === healTarget.id
+                  ? {
+                      ...unit,
+                      segments: updatedSegments
+                    }
+                  : unit
+              )
+            };
+            
+            return addLogEntry(
+              updatedState, 
+              `${sourceUnit.name} uses ${selectedMove.name}, repairing damage to ${
+                selectedMove.targeting === 'self' ? 'its segments' : `${healTarget.name}'s segments`
+              }.`
+            );
+          }
+        } 
+        // Otherwise heal overall durability
+        else if (healTarget && healTarget.durability) {
+          updatedState = {
+            ...updatedState,
+            units: updatedState.units.map(unit =>
+              unit.id === healTarget.id && unit.durability
+                ? {
+                    ...unit,
+                    durability: {
+                      ...unit.durability,
+                      current: Math.min(
+                        unit.durability.max, 
+                        unit.durability.current + healAmount
+                      )
+                    }
                   }
-                }
-              : unit
-          )
-        };
-        
-        return addLogEntry(
-          updatedState, 
-          `${sourceUnit.name} uses ${selectedMove.name}, healing ${
-            selectedMove.targeting === 'self' ? 'itself' : healTarget?.name
-          } for ${healAmount} durability.`
-        );
+                : unit
+            )
+          };
+          
+          return addLogEntry(
+            updatedState, 
+            `${sourceUnit.name} uses ${selectedMove.name}, healing ${
+              selectedMove.targeting === 'self' ? 'itself' : healTarget.name
+            } for ${healAmount} durability.`
+          );
+        }
       }
       break;
     }

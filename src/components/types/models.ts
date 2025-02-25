@@ -17,6 +17,7 @@ export interface SpecialMove {
 }
 
 export interface Weapon {
+  id: string;
   name: string;
   force: number; // Replaces damage, discounted by defender's mass
   penetration: number; // Discounted by defender's armor
@@ -26,12 +27,29 @@ export interface Weapon {
   special?: string; // Special effects as text for GM reference
 }
 
-export interface Subsystem {
+export type SegmentType = 'HEAD' | 'TORSO' | 'ARM_LEFT' | 'ARM_RIGHT' | 'LEG_LEFT' | 'LEG_RIGHT' | 'TAIL' | 'WING_LEFT' | 'WING_RIGHT';
+
+export interface Segment {
+  id: string;
   name: string;
-  type: 'Internal' | 'External' | 'Vulnerable';
+  type: SegmentType;
   durability: number;
-  status: 'Operational' | 'Damaged' | 'Destroyed';
-  special?: string;
+  maxDurability: number;
+  armor: number; // Segment-specific armor value
+  subsystemIds: string[]; // IDs of subsystems attached to this segment
+}
+
+export type SubsystemType = 'WEAPON' | 'SENSOR' | 'MOBILITY' | 'SHIELD' | 'POWER' | 'LIFE_SUPPORT' | 'COMMS';
+
+export interface Subsystem {
+  id: string;
+  name: string;
+  type: SubsystemType;
+  functional: boolean;
+  durabilityThreshold: number; // % of segment durability below which subsystem is damaged
+  weaponId?: string; // If the subsystem is a weapon mount
+  effect?: string; // Description of special effect when active
+  description: string;
 }
 
 export interface Pilot {
@@ -55,15 +73,17 @@ export interface Unit {
   name: string;
   type: 'mecha' | 'kaiju'; // Only two unit types: Mecha (pilotable) and Kaiju (non-pilotable)
   position?: Position;
-  durability: {
+  // Overall durability is now derived from segments
+  durability?: {
     current: number;
     max: number;
   };
-  armor: number;
+  armor: number; // Base armor value
   agility: number;
   mass: number;
   weapons: Weapon[];
-  subsystems: Subsystem[];
+  segments: Segment[]; // New segments array
+  subsystems: Subsystem[]; // Changed from old subsystem type to new one
   specialMoves: SpecialMove[]; // Unit-specific special abilities
   pilotId?: string; // Reference to the pilot (only for Mecha type)
   status: {
@@ -73,4 +93,5 @@ export interface Unit {
     stunned?: boolean;
     prone?: boolean; // Added for special moves like "Take Aim"
   };
+  selectedSegmentId?: string; // Currently targeted segment
 }

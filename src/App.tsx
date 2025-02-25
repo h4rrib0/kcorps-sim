@@ -30,7 +30,7 @@ function AppContent() {
     <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden' }}>
       {/* Left details panel */}
       <div style={{ 
-        width: '300px', 
+        width: '350px', 
         height: '100vh', 
         backgroundColor: '#f5f5f5',
         borderRight: '1px solid #ddd',

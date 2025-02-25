@@ -1,5 +1,5 @@
 // state.ts - Game state and actions
-import { Unit, Pilot } from './models';
+import { Unit, Pilot, Segment } from './models';
 
 export interface GameState {
   units: Unit[];
@@ -7,11 +7,13 @@ export interface GameState {
   selectedUnitId?: string;
   selectedPilotId?: string; // Currently selected pilot
   targetUnitId?: string;
+  targetSegmentId?: string; // Currently targeted segment
   selectedWeaponId?: string;
   selectedSpecialMoveId?: string; // Selected special move ID
   attackMode: boolean;
   specialMoveMode: boolean; // Similar to attack mode but for special moves
   placementMode: boolean; // Whether the UI is in unit placement mode
+  segmentTargetingMode: boolean; // Whether the UI is in segment targeting mode
   attackableTiles: Array<{q: number, r: number}>; // Tiles that can be attacked with current weapon
   targetableTiles: Array<{q: number, r: number}>; // Tiles that can be targeted with special moves
   validPlacementTiles: Array<{q: number, r: number}>; // Tiles where units can be placed
@@ -30,6 +32,7 @@ export const initialGameState: GameState = {
   attackMode: false,
   specialMoveMode: false,
   placementMode: false,
+  segmentTargetingMode: false,
   attackableTiles: [],
   targetableTiles: [],
   validPlacementTiles: [],

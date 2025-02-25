@@ -26,6 +26,24 @@ export function handleAddPilot(state: GameState, action: GameAction): GameState 
   return addLogEntry(newState, `Pilot ${action.pilot.name} added to the roster.`);
 }
 
+export function handleUpdatePilot(state: GameState, action: GameAction): GameState {
+  if (action.type !== 'UPDATE_PILOT') return state;
+  
+  const pilotToUpdate = state.pilots.find(pilot => pilot.id === action.pilotId);
+  if (!pilotToUpdate) {
+    return addErrorEntry(state, `Cannot update pilot: Pilot with ID ${action.pilotId} not found.`);
+  }
+  
+  return {
+    ...state,
+    pilots: state.pilots.map(pilot => 
+      pilot.id === action.pilotId 
+        ? { ...pilot, ...action.changes }
+        : pilot
+    )
+  };
+}
+
 export function handleAssignPilot(state: GameState, action: GameAction): GameState {
   if (action.type !== 'ASSIGN_PILOT') return state;
   

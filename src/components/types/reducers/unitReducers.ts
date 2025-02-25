@@ -71,6 +71,24 @@ export function handleAddUnit(state: GameState, action: GameAction): GameState {
   return addLogEntry(newState, `Unit ${action.unit.name} (${action.unit.type}) added to the battle.`);
 }
 
+export function handleUpdateUnit(state: GameState, action: GameAction): GameState {
+  if (action.type !== 'UPDATE_UNIT') return state;
+  
+  const unitToUpdate = state.units.find(unit => unit.id === action.unitId);
+  if (!unitToUpdate) {
+    return addErrorEntry(state, `Cannot update unit: Unit with ID ${action.unitId} not found.`);
+  }
+  
+  return {
+    ...state,
+    units: state.units.map(unit => 
+      unit.id === action.unitId 
+        ? { ...unit, ...action.changes }
+        : unit
+    )
+  };
+}
+
 export function handleDamageUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'DAMAGE_UNIT') return state;
   
@@ -118,5 +136,3 @@ export function handleRemoveUnit(state: GameState, action: GameAction): GameStat
   
   return addLogEntry(newState, `Unit ${unitToRemove?.name || action.unitId} removed from battle.`);
 }
-
-// More unit-related reducers can be added here

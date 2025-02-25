@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameState } from '../context';
 import EditableStat from './UnitCard';
+import SegmentDetails from './SegmentDetails';
 
 const DetailsPanel: React.FC = () => {
   const { state, dispatch } = useGameState();
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   
   // Get the currently selected unit and pilot
   const selectedUnit = state.selectedUnitId 
@@ -35,6 +37,26 @@ const DetailsPanel: React.FC = () => {
     );
   }
 
+  // Get selected segment if any
+  const selectedSegment = selectedUnit && selectedSegmentId 
+    ? selectedUnit.segments.find(s => s.id === selectedSegmentId) 
+    : null;
+
+  // Calculate total durability from segments if available
+  const calculateTotalDurability = () => {
+    if (!selectedUnit) return { current: 0, max: 0 };
+    
+    if (selectedUnit.segments && selectedUnit.segments.length > 0) {
+      const current = selectedUnit.segments.reduce((sum, segment) => sum + segment.durability, 0);
+      const max = selectedUnit.segments.reduce((sum, segment) => sum + segment.maxDurability, 0);
+      return { current, max };
+    }
+    
+    return selectedUnit.durability || { current: 0, max: 0 };
+  };
+
+  const totalDurability = calculateTotalDurability();
+
   return (
     <div style={{ 
       padding: '1rem',
@@ -45,13 +67,14 @@ const DetailsPanel: React.FC = () => {
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            flexDirection: 'column',
             marginBottom: '1rem',
             backgroundColor: 'white',
             padding: '1rem',
             borderRadius: '8px',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
             <div 
               style={{
                 width: '40px',
@@ -74,7 +97,7 @@ const DetailsPanel: React.FC = () => {
             >
               {selectedUnit.name.substring(0, 1)}
             </div>
-            <div>
+            <div style={{ flex: 1 }}>
               <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{selectedUnit.name}</h2>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <span style={{ 
@@ -100,24 +123,63 @@ const DetailsPanel: React.FC = () => {
               </div>
             </div>
           </div>
+            
+            {/* Status Effects in the name card (if present) */}
+            {selectedUnit.status && Object.keys(selectedUnit.status).some(key => selectedUnit.status[key]) && (
+              <div style={{ 
+                marginTop: '0.75rem',
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '0.5rem'
+              }}>
+                {Object.entries(selectedUnit.status).map(([key, value]) => {
+                  if (!value) return null;
+                  return (
+                    <div 
+                      key={key}
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        backgroundColor: (() => {
+                          switch (key) {
+                            case 'dazed': return '#fee2e2';
+                            case 'prone': return '#fef3c7';
+                            case 'downed': return '#fee2e2';
+                            case 'grappled': return '#fee2e2';
+                            case 'stunned': return '#fee2e2';
+                            default: return '#f3f4f6';
+                          }
+                        })(),
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        fontWeight: 'bold',
+                        color: (() => {
+                          switch (key) {
+                            case 'dazed': return '#dc2626';
+                            case 'prone': return '#d97706';
+                            case 'downed': return '#dc2626';
+                            case 'grappled': return '#dc2626';
+                            case 'stunned': return '#dc2626';
+                            default: return '#6b7280';
+                          }
+                        })()
+                      }}
+                    >
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <h3>Unit Stats</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <EditableStat
               label="Durability"
-              value={selectedUnit.durability.current}
-              max={selectedUnit.durability.max}
+              value={totalDurability.current}
+              max={totalDurability.max}
               onChange={(newValue) => {
-                dispatch({ 
-                  type: 'UPDATE_UNIT', 
-                  unitId: selectedUnit.id, 
-                  changes: { 
-                    durability: { 
-                      ...selectedUnit.durability, 
-                      current: newValue 
-                    } 
-                  } 
-                });
+                // Not implementing onChange for segment-based durability
               }}
             />
             <EditableStat
@@ -155,37 +217,130 @@ const DetailsPanel: React.FC = () => {
             />
           </div>
 
+          {/* Segments section */}
+          {selectedUnit.segments && selectedUnit.segments.length > 0 && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <h3>Segments</h3>
+                {selectedSegmentId && (
+                  <button 
+                    style={{
+                      padding: '0.25rem 0.5rem',
+                      fontSize: '0.75rem',
+                      backgroundColor: '#f3f4f6',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setSelectedSegmentId(null)}
+                  >
+                    Back to list
+                  </button>
+                )}
+              </div>
+
+              {selectedSegment && selectedUnit ? (
+                <SegmentDetails unit={selectedUnit} segment={selectedSegment} />
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+                  {selectedUnit.segments.map(segment => {
+                    const durabilityPercent = (segment.durability / segment.maxDurability) * 100;
+                    const healthColor = durabilityPercent > 66 ? '#10b981' : durabilityPercent > 33 ? '#f59e0b' : '#ef4444';
+                    
+                    return (
+                      <div 
+                        key={segment.id}
+                        style={{
+                          padding: '0.75rem',
+                          backgroundColor: 'white',
+                          borderRadius: '8px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => setSelectedSegmentId(segment.id)}
+                      >
+                        <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                          {segment.name}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#666', marginBottom: '0.25rem' }}>
+                          {segment.type}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+                          <span>Durability</span>
+                          <span>{segment.durability}/{segment.maxDurability}</span>
+                        </div>
+                        <div style={{ width: '100%', height: '4px', backgroundColor: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div 
+                            style={{ 
+                              height: '100%', 
+                              backgroundColor: healthColor,
+                              width: `${durabilityPercent}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
           <h3>Weapons</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-            {selectedUnit.weapons.map((weapon, index) => (
-              <div 
-                key={index}
-                style={{
-                  padding: '0.75rem',
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                }}
-              >
-                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                  {weapon.name}
-                  <span style={{ 
-                    marginLeft: '0.5rem',
-                    fontWeight: 'normal',
-                    fontSize: '0.8rem',
-                    backgroundColor: weapon.range === 'melee' ? '#fef3c7' : '#e8f4fe',
-                    padding: '2px 6px',
-                    borderRadius: '10px',
-                    color: weapon.range === 'melee' ? '#d97706' : '#0078d4'
-                  }}>
-                    {weapon.range === 'melee' ? 'Melee' : `Range: ${weapon.range}`}
-                  </span>
+            {selectedUnit.weapons.map((weapon, index) => {
+              // Check if weapon is linked to a subsystem
+              const linkedSubsystem = selectedUnit.subsystems.find(s => s.weaponId === weapon.id);
+              const isWeaponFunctional = !linkedSubsystem || linkedSubsystem.functional;
+              
+              return (
+                <div 
+                  key={index}
+                  style={{
+                    padding: '0.75rem',
+                    backgroundColor: isWeaponFunctional ? 'white' : '#fee2e2',
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', display: 'flex', justifyContent: 'space-between' }}>
+                    <div>
+                      {weapon.name}
+                      <span style={{ 
+                        marginLeft: '0.5rem',
+                        fontWeight: 'normal',
+                        fontSize: '0.8rem',
+                        backgroundColor: weapon.range === 'melee' ? '#fef3c7' : '#e8f4fe',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        color: weapon.range === 'melee' ? '#d97706' : '#0078d4'
+                      }}>
+                        {weapon.range === 'melee' ? 'Melee' : `Range: ${weapon.range}`}
+                      </span>
+                    </div>
+                    {linkedSubsystem && (
+                      <span style={{
+                        fontSize: '0.8rem',
+                        backgroundColor: isWeaponFunctional ? '#d1fae5' : '#fee2e2',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        color: isWeaponFunctional ? '#10b981' : '#ef4444'
+                      }}>
+                        {isWeaponFunctional ? 'Functional' : 'Damaged'}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.875rem', color: '#666' }}>
+                    FOR: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty} | ARC: {weapon.arcWidth}°
+                  </div>
+                  {linkedSubsystem && (
+                    <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: '#6b7280' }}>
+                      Linked to: {linkedSubsystem.name} subsystem
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                  FOR: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty} | ARC: {weapon.arcWidth}°
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {selectedUnit.specialMoves.length > 0 && (
@@ -255,44 +410,7 @@ const DetailsPanel: React.FC = () => {
             </>
           )}
 
-          {selectedUnit.status && Object.keys(selectedUnit.status).length > 0 && (
-            <>
-              <h3>Status Effects</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                {Object.entries(selectedUnit.status).map(([key, value]) => (
-                  <div 
-                    key={key}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      backgroundColor: (() => {
-                        switch (key) {
-                          case 'dazed': return '#fee2e2';
-                          case 'prone': return '#fef3c7';
-                          case 'reinforced': return '#d1fae5';
-                          case 'focused': return '#dbeafe';
-                          default: return '#f3f4f6';
-                        }
-                      })(),
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: 'bold',
-                      color: (() => {
-                        switch (key) {
-                          case 'dazed': return '#dc2626';
-                          case 'prone': return '#d97706';
-                          case 'reinforced': return '#10b981';
-                          case 'focused': return '#2563eb';
-                          default: return '#6b7280';
-                        }
-                      })()
-                    }}
-                  >
-                    {key}: {typeof value === 'number' ? `${value} turn(s)` : value.toString()}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          {/* Status Effects section removed since we're showing them at the top */}
         </div>
       )}
 
@@ -300,13 +418,14 @@ const DetailsPanel: React.FC = () => {
         <div style={{ marginBottom: '2rem' }}>
           <div style={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            flexDirection: 'column',
             marginBottom: '1rem',
             backgroundColor: 'white',
             padding: '1rem',
             borderRadius: '8px',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
             <div 
               style={{
                 width: '40px',
@@ -325,7 +444,7 @@ const DetailsPanel: React.FC = () => {
             >
               {selectedPilot.name.substring(0, 1)}
             </div>
-            <div>
+            <div style={{ flex: 1 }}>
               <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{selectedPilot.name}</h2>
               <div>
                 {state.units.find(unit => unit.pilotId === selectedPilot.id) ? (
@@ -352,17 +471,61 @@ const DetailsPanel: React.FC = () => {
               </div>
             </div>
           </div>
+            
+            {/* Pilot Status Effects in the name card (if present) */}
+            {selectedPilot.status && Object.keys(selectedPilot.status).some(key => selectedPilot.status[key]) && (
+              <div style={{ 
+                marginTop: '0.75rem',
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '0.5rem'
+              }}>
+                {Object.entries(selectedPilot.status).map(([key, value]) => {
+                  if (!value) return null;
+                  return (
+                    <div 
+                      key={key}
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        backgroundColor: (() => {
+                          switch (key) {
+                            case 'stressed': return '#fee2e2';
+                            case 'injured': return '#fee2e2';
+                            case 'panicked': return '#fee2e2';
+                            default: return '#f3f4f6';
+                          }
+                        })(),
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        fontWeight: 'bold',
+                        color: (() => {
+                          switch (key) {
+                            case 'stressed': return '#dc2626';
+                            case 'injured': return '#dc2626';
+                            case 'panicked': return '#dc2626';
+                            default: return '#6b7280';
+                          }
+                        })()
+                      }}
+                    >
+                      {key.charAt(0).toUpperCase() + key.slice(1)}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <h3>Pilot Stats</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
             <EditableStat
-              label="Precision"
-              value={selectedPilot.precision}
+              label="Aggression"
+              value={selectedPilot.aggression}
               onChange={(newValue) => {
                 dispatch({ 
                   type: 'UPDATE_PILOT', 
                   pilotId: selectedPilot.id, 
-                  changes: { precision: newValue } 
+                  changes: { aggression: newValue } 
                 });
               }}
             />
@@ -468,44 +631,7 @@ const DetailsPanel: React.FC = () => {
             </>
           )}
           
-          {selectedPilot.status && Object.keys(selectedPilot.status).length > 0 && (
-            <>
-              <h3>Status Effects</h3>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-                {Object.entries(selectedPilot.status).map(([key, value]) => (
-                  <div 
-                    key={key}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      backgroundColor: (() => {
-                        switch (key) {
-                          case 'dazed': return '#fee2e2';
-                          case 'focused': return '#dbeafe';
-                          case 'stressed': return '#fee2e2';
-                          case 'confident': return '#d1fae5';
-                          default: return '#f3f4f6';
-                        }
-                      })(),
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: 'bold',
-                      color: (() => {
-                        switch (key) {
-                          case 'dazed': return '#dc2626';
-                          case 'focused': return '#2563eb';
-                          case 'stressed': return '#dc2626';
-                          case 'confident': return '#10b981';
-                          default: return '#6b7280';
-                        }
-                      })()
-                    }}
-                  >
-                    {key}: {typeof value === 'number' ? `${value} turn(s)` : value.toString()}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          {/* Pilot Status Effects section removed since we're showing them at the top */}
         </div>
       )}
     </div>

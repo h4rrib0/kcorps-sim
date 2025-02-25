@@ -1,6 +1,5 @@
 import React from 'react';
 import { useGameState } from '../context';
-import { Unit, Weapon } from '../types';
 
 const AttackPanel: React.FC = () => {
   const { state, dispatch } = useGameState();
@@ -10,8 +9,13 @@ const AttackPanel: React.FC = () => {
   const target = state.units.find(unit => unit.id === state.targetUnitId);
   
   // Handle weapon selection
-  const handleWeaponSelect = (weaponName: string) => {
-    dispatch({ type: 'SELECT_WEAPON', weaponId: weaponName });
+  const handleWeaponSelect = (weaponId: string) => {
+    dispatch({ type: 'SELECT_WEAPON', weaponId });
+  };
+
+  // Handle segment selection from dropdown
+  const handleSegmentSelect = (segmentId: string) => {
+    dispatch({ type: 'SELECT_TARGET_SEGMENT', segmentId });
   };
 
   // Handle attack execution
@@ -24,11 +28,34 @@ const AttackPanel: React.FC = () => {
     dispatch({ type: 'EXIT_ATTACK_MODE' });
   };
 
+  // Calculate total durability from segments if available
+  const calculateDurability = (unit: any) => {
+    if (!unit) return { current: 0, max: 0 };
+    
+    if (unit.segments && unit.segments.length > 0) {
+      const current = unit.segments.reduce((sum: number, segment: any) => sum + segment.durability, 0);
+      const max = unit.segments.reduce((sum: number, segment: any) => sum + segment.maxDurability, 0);
+      return { current, max };
+    }
+    
+    return unit.durability || { current: 0, max: 0 };
+  };
+
   // Check if attack is valid (attacker, target, and weapon are all selected)
-  // Also check that attacker is not targeting self
   const isAttackValid = !!attacker && !!target && !!state.selectedWeaponId && attacker?.id !== target?.id;
 
+  // Check if the target has segments that can be targeted
+  const hasTargetableSegments = target && target.segments && target.segments.length > 0;
+
+  // Get the currently targeted segment if any
+  const targetSegment = target && state.targetSegmentId 
+    ? target.segments.find(s => s.id === state.targetSegmentId) 
+    : null;
+
   if (!state.attackMode) return null;
+
+  const attackerDurability = calculateDurability(attacker);
+  const targetDurability = calculateDurability(target);
 
   return (
     <div className="attack-panel" style={{
@@ -79,7 +106,7 @@ const AttackPanel: React.FC = () => {
             <div>
               <p style={{ margin: '0 0 2px 0', fontWeight: 'bold' }}>{attacker.name}</p>
               <p style={{ margin: '0', fontSize: '12px' }}>
-                HP: {attacker.durability.current}/{attacker.durability.max} | 
+                HP: {attackerDurability.current}/{attackerDurability.max} | 
                 Weapons: {attacker.weapons.length}
               </p>
             </div>
@@ -90,7 +117,38 @@ const AttackPanel: React.FC = () => {
       </div>
       
       <div style={{ marginBottom: '15px' }}>
-        <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #ddd', paddingBottom: '5px' }}>Target</h4>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          margin: '0 0 5px 0'
+        }}>
+          <h4 style={{ margin: 0, borderBottom: '1px solid #ddd', paddingBottom: '5px', flexGrow: 1 }}>Target</h4>
+          
+          {/* Segment targeting dropdown */}
+          {hasTargetableSegments && target && (
+            <select 
+              value={state.targetSegmentId || ''} 
+              onChange={(e) => handleSegmentSelect(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                fontSize: '11px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                backgroundColor: '#fff',
+                marginLeft: '8px'
+              }}
+            >
+              <option value="">Target Whole</option>
+              {target.segments.map(segment => (
+                <option key={segment.id} value={segment.id}>
+                  {segment.name} ({segment.durability}/{segment.maxDurability})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        
         {target ? (
           <div style={{ 
             display: 'flex', 
@@ -119,12 +177,23 @@ const AttackPanel: React.FC = () => {
             }}>
               {target.name.substring(0, 1)}
             </div>
-            <div>
+            <div style={{ flexGrow: 1 }}>
               <p style={{ margin: '0 0 2px 0', fontWeight: 'bold' }}>{target.name}</p>
               <p style={{ margin: '0', fontSize: '12px' }}>
-                HP: {target.durability.current}/{target.durability.max} | 
+                HP: {targetDurability.current}/{targetDurability.max} | 
                 Armor: {target.armor}
               </p>
+              {targetSegment && (
+                <p style={{ 
+                  margin: '2px 0 0 0', 
+                  fontSize: '12px',
+                  backgroundColor: '#e8f5e9',
+                  padding: '2px 4px',
+                  borderRadius: '2px' 
+                }}>
+                  Targeting: {targetSegment.name} ({targetSegment.durability}/{targetSegment.maxDurability})
+                </p>
+              )}
             </div>
           </div>
         ) : (
@@ -150,7 +219,7 @@ const AttackPanel: React.FC = () => {
             .filter(u => {
               // Find the attacker and their currently selected weapon
               const attacker = state.units.find(unit => unit.id === state.selectedUnitId);
-              const weapon = attacker?.weapons.find(w => w.name === state.selectedWeaponId) || 
+              const weapon = attacker?.weapons.find(w => w.id === state.selectedWeaponId) || 
                              attacker?.weapons[0];
               
               // Unit must have a position
@@ -173,49 +242,52 @@ const AttackPanel: React.FC = () => {
                 tile => tile.q === u.position?.x && tile.r === u.position?.y
               );
             })
-            .map(unit => (
-              <div 
-                key={unit.id}
-                onClick={() => dispatch({ type: 'SELECT_TARGET', unitId: unit.id })}
-                style={{
-                  padding: '5px 8px',
-                  borderBottom: '1px solid #eee',
-                  backgroundColor: state.targetUnitId === unit.id ? '#e0f7fa' : 'transparent',
-                  cursor: 'pointer',
-                  borderLeft: state.targetUnitId === unit.id ? '4px solid #007bff' : 'none',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}
-              >
-                {/* Color indicator matching unit's color on the grid */}
-                <div style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  backgroundColor: (() => {
-                    // Same hash function as in Unit component
-                    const hash = unit.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                    const hue = hash % 360;
-                    return `hsl(${hue}, 80%, 70%)`;
-                  })(),
-                  marginRight: '8px',
-                  border: '1px solid #666'
-                }} />
-                
-                <div>
-                  <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>{unit.name}</p>
-                  <p style={{ margin: '0', fontSize: '12px' }}>
-                    HP: {unit.durability.current}/{unit.durability.max} | 
-                    Pos: ({unit.position.x}, {unit.position.y})
-                  </p>
+            .map(unit => {
+              const unitDurability = calculateDurability(unit);
+              return (
+                <div 
+                  key={unit.id}
+                  onClick={() => dispatch({ type: 'SELECT_TARGET', unitId: unit.id })}
+                  style={{
+                    padding: '5px 8px',
+                    borderBottom: '1px solid #eee',
+                    backgroundColor: state.targetUnitId === unit.id ? '#e0f7fa' : 'transparent',
+                    cursor: 'pointer',
+                    borderLeft: state.targetUnitId === unit.id ? '4px solid #007bff' : 'none',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {/* Color indicator matching unit's color on the grid */}
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: (() => {
+                      // Same hash function as in Unit component
+                      const hash = unit.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                      const hue = hash % 360;
+                      return `hsl(${hue}, 80%, 70%)`;
+                    })(),
+                    marginRight: '8px',
+                    border: '1px solid #666'
+                  }} />
+                  
+                  <div>
+                    <p style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>{unit.name}</p>
+                    <p style={{ margin: '0', fontSize: '12px' }}>
+                      HP: {unitDurability.current}/{unitDurability.max} | 
+                      Pos: ({unit.position.x}, {unit.position.y})
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           }
           {state.units.filter(u => {
               // Reusing the same logic as above to maintain consistency
               const attacker = state.units.find(unit => unit.id === state.selectedUnitId);
-              const weapon = attacker?.weapons.find(w => w.name === state.selectedWeaponId) || 
+              const weapon = attacker?.weapons.find(w => w.id === state.selectedWeaponId) || 
                              attacker?.weapons[0];
               
               if (!u.position || u.id === state.selectedUnitId || !attacker?.position) return false;
@@ -250,34 +322,67 @@ const AttackPanel: React.FC = () => {
               borderRadius: '4px',
               border: '1px solid #ddd'
             }}>
-              {attacker.weapons.map((weapon) => (
-                <button
-                  key={weapon.name}
-                  onClick={() => handleWeaponSelect(weapon.name)}
-                  style={{
-                    padding: '6px 8px',
-                    backgroundColor: state.selectedWeaponId === weapon.name ? '#e6f2ff' : 'transparent',
-                    color: 'black',
-                    border: state.selectedWeaponId === weapon.name ? '1px solid #007bff' : '1px solid #eee',
-                    borderLeft: state.selectedWeaponId === weapon.name ? '4px solid #007bff' : '1px solid #eee',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    textAlign: 'left'
-                  }}
-                >
-                  <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{weapon.name}</div>
-                  <div style={{ fontSize: '11px', marginTop: '2px' }}>
-                    Force: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty}
-                  </div>
-                  <div style={{ fontSize: '11px' }}>
-                    {weapon.range === 'melee' ? '⚔️ Melee' : `🎯 Range: ${weapon.range}`} | 
-                    Arc: {weapon.arcWidth || 60}°
-                  </div>
-                </button>
-              ))}
+              {attacker.weapons.map((weapon) => {
+                // Check if weapon is linked to a subsystem
+                const linkedSubsystem = attacker.subsystems?.find(s => s.weaponId === weapon.id);
+                const isWeaponFunctional = !linkedSubsystem || linkedSubsystem.functional;
+                
+                return (
+                  <button
+                    key={weapon.id}
+                    onClick={() => handleWeaponSelect(weapon.id)}
+                    disabled={!isWeaponFunctional}
+                    style={{
+                      padding: '6px 8px',
+                      backgroundColor: !isWeaponFunctional 
+                        ? '#f8d7da' 
+                        : state.selectedWeaponId === weapon.id ? '#e6f2ff' : 'transparent',
+                      color: !isWeaponFunctional ? '#dc3545' : 'black',
+                      border: state.selectedWeaponId === weapon.id ? '1px solid #007bff' : '1px solid #eee',
+                      borderLeft: state.selectedWeaponId === weapon.id ? '4px solid #007bff' : '1px solid #eee',
+                      borderRadius: '3px',
+                      cursor: isWeaponFunctional ? 'pointer' : 'not-allowed',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: '14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      width: '100%'
+                    }}>
+                      <span>{weapon.name}</span>
+                      {!isWeaponFunctional && (
+                        <span style={{ fontSize: '10px', color: '#dc3545' }}>DAMAGED</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: '11px', marginTop: '2px' }}>
+                      Force: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty}
+                    </div>
+                    <div style={{ fontSize: '11px' }}>
+                      {weapon.range === 'melee' ? '⚔️ Melee' : `🎯 Range: ${weapon.range}`} | 
+                      Arc: {weapon.arcWidth || 60}°
+                    </div>
+                    {linkedSubsystem && (
+                      <div style={{ 
+                        fontSize: '10px', 
+                        marginTop: '2px',
+                        backgroundColor: isWeaponFunctional ? '#e8f5e9' : '#f8d7da',
+                        padding: '1px 4px',
+                        borderRadius: '2px',
+                        color: isWeaponFunctional ? '#2e7d32' : '#c62828'
+                      }}>
+                        {linkedSubsystem.name} subsystem: {isWeaponFunctional ? 'OPERATIONAL' : 'DAMAGED'}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <p style={{ fontSize: '14px', color: '#666', textAlign: 'center' }}>No weapons available</p>

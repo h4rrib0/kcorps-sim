@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGameState } from '../context';
 import { Unit } from '../types';
 import TabPanel from './TabPanel';
+import { generateDefaultSegments } from '../../utils/segmentUtils';
 
 const RightBar: React.FC = () => {
     // Unit form state with sensible defaults
@@ -31,34 +32,85 @@ const RightBar: React.FC = () => {
             const defaultSpecialMoves = [
             ];
 
+            // Set up timestamp for IDs
+            const timestamp = Date.now();
+            
+            // Generate default segments (head, core, and arms)
+            const defaultDurability = durability || 10;
+            const defaultArmor = armor || 2;
+            
+            // Get all segments and update IDs
+            const segments = generateDefaultSegments().slice(0, 4); // Head, Core, Left Arm, Right Arm
+            
+            // Update core segment to match unit durability and armor
+            segments[1].durability = defaultDurability;
+            segments[1].maxDurability = defaultDurability;
+            segments[1].armor = defaultArmor;
+            
+            // Ensure IDs are unique
+            segments.forEach((segment, index) => {
+                segment.id = `segment-${timestamp}-${index}`;
+            });
+
+            // Create weapons for the unit
+            const weapons = [
+                { 
+                    id: `weapon-${timestamp}-melee`,
+                    name: `${unitName}'s Melee Weapon`, 
+                    force: 8, 
+                    penetration: 1, 
+                    difficulty: 1,
+                    range: 'melee',
+                    arcWidth: 120
+                },
+                { 
+                    id: `weapon-${timestamp}-ranged`,
+                    name: `${unitName}'s Ranged Weapon`, 
+                    force: 3, 
+                    penetration: 6, 
+                    difficulty: 2,
+                    range: 3,
+                    arcWidth: 60
+                }
+            ];
+            
+            // Create subsystems for weapon mounts
+            const leftArmSubsystem = {
+                id: `subsystem-${timestamp}-leftweapon`,
+                name: 'Left Arm Weapon Mount',
+                type: 'WEAPON' as const,
+                functional: true,
+                durabilityThreshold: 40,
+                weaponId: weapons[0].id,
+                description: 'Left arm weapon mount'
+            };
+                
+            const rightArmSubsystem = {
+                id: `subsystem-${timestamp}-rightweapon`,
+                name: 'Right Arm Weapon Mount',
+                type: 'WEAPON' as const,
+                functional: true,
+                durabilityThreshold: 40,
+                weaponId: weapons[1].id,
+                description: 'Right arm weapon mount'
+            };
+                
+            // Link subsystems to arm segments
+            segments[2].subsystemIds = [leftArmSubsystem.id]; // Left arm
+            segments[3].subsystemIds = [rightArmSubsystem.id]; // Right arm
+                
             const newUnit: Unit = {
-                id: String(Date.now()),
+                id: String(timestamp),
                 name: unitName,
                 type: unitType,
                 durability: { current: durability || 10, max: durability || 10 }, // Default to 10 if 0
                 armor: armor || 2, // Default to 2 if 0
                 agility: agility || 2, // Default to 2 if 0
                 mass: mass || 5, // Default to 5 if 0
-                weapons: [
-                    { 
-                        name: `${unitName}'s Melee Weapon`, 
-                        force: 3, 
-                        penetration: 1, 
-                        difficulty: 1,
-                        range: 'melee',
-                        arcWidth: 120
-                    },
-                    { 
-                        name: `${unitName}'s Ranged Weapon`, 
-                        force: 2, 
-                        penetration: 1, 
-                        difficulty: 2,
-                        range: 3,
-                        arcWidth: 60
-                    }
-                ],
+                weapons: weapons,
                 specialMoves: defaultSpecialMoves,
-                subsystems: [],
+                segments: segments,
+                subsystems: [leftArmSubsystem, rightArmSubsystem],
                 status: {}
                 // Note: no "position", so it's off‑field.
             };
