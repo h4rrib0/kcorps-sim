@@ -4,12 +4,7 @@ import { HexCoord, TerrainType, generateHexGrid } from '../../utils/hexCalculati
 import HexTile from './HexTile';
 import Unit from './Unit';
 import { useGameState } from '../context';
-
-interface Unit {
-    id: string;
-    coord: HexCoord;
-    facing: number; // Angle in degrees
-}
+import { Unit as UnitType } from '../types';
 
 interface HexGridProps {
   radius?: number;
@@ -113,11 +108,29 @@ const HexGrid: React.FC<HexGridProps> = ({
 
     const handleTileClick = (coord: HexCoord) => {
         setSelectedTile(coord);
+        
+        // If we have a selected off-field unit (without a position), place it on the clicked tile
+        if (state.selectedUnitId) {
+            const selectedUnit = state.units.find(unit => unit.id === state.selectedUnitId);
+            if (selectedUnit && !selectedUnit.position) {
+                // Place the unit on the clicked tile
+                dispatch({ 
+                    type: 'PLACE_UNIT', 
+                    unitId: selectedUnit.id, 
+                    position: { 
+                        x: coord.q, 
+                        y: coord.r, 
+                        facing: 0 
+                    } 
+                });
+            }
+        }
+        
         onTileClick?.(coord);
     };
     
     // Handle unit click for targeting in attack mode or special move mode
-    const handleUnitClick = (unit: Unit) => {
+    const handleUnitClick = (unit: UnitType) => {
         if (state.attackMode) {
             if (state.selectedUnitId !== unit.id) {
                 // Select as target if in attack mode and not the attacker
@@ -344,7 +357,7 @@ const HexGrid: React.FC<HexGridProps> = ({
                                             key={unit.id}
                                             unit={unit}
                                             hexSize={hexSize}
-                                            onClick={() => handleUnitClick(unit)}
+                                            onClick={() => handleUnitClick(unit as UnitType)}
                                             isTarget={state.attackMode && state.targetUnitId === unit.id}
                                             isAttacker={state.attackMode && state.selectedUnitId === unit.id}
                                             isPiloted={!!unit.pilotId}

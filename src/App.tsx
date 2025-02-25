@@ -1,7 +1,6 @@
 import React from 'react';
 import './App.css';
 import HexGrid from './components/combat/HexGrid';
-import NewRightBar from './components/sidebar/NewRightBar';
 import RightBar from './components/sidebar/RightBar';
 import DetailsPanel from './components/sidebar/DetailsPanel';
 import AttackPanel from './components/combat/AttackPanel';
@@ -73,7 +72,7 @@ function AppContent() {
       </div>
 
       {/* Right sidebar with tabs */}
-      <NewRightBar />
+      <RightBar />
     </div>
   );
 }
