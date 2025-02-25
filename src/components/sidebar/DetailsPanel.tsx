@@ -182,7 +182,7 @@ const DetailsPanel: React.FC = () => {
                   </span>
                 </div>
                 <div style={{ fontSize: '0.875rem', color: '#666' }}>
-                  DMG: {weapon.damage} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty} | ARC: {weapon.arcWidth}°
+                  FOR: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty} | ARC: {weapon.arcWidth}°
                 </div>
               </div>
             ))}

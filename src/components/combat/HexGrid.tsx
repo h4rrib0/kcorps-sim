@@ -109,8 +109,23 @@ const HexGrid: React.FC<HexGridProps> = ({
     const handleTileClick = (coord: HexCoord) => {
         setSelectedTile(coord);
         
-        // If we have a selected off-field unit (without a position), place it on the clicked tile
-        if (state.selectedUnitId) {
+        // If in placement mode, place the unit on the clicked tile
+        if (state.placementMode && state.selectedUnitId) {
+            // Place the unit on the clicked tile - all hexes are valid
+            dispatch({ 
+                type: 'PLACE_UNIT', 
+                unitId: state.selectedUnitId, 
+                position: { 
+                    x: coord.q, 
+                    y: coord.r, 
+                    facing: 0 
+                } 
+            });
+            return;
+        }
+        
+        // For backward compatibility
+        if (state.selectedUnitId && !state.placementMode) {
             const selectedUnit = state.units.find(unit => unit.id === state.selectedUnitId);
             if (selectedUnit && !selectedUnit.position) {
                 // Place the unit on the clicked tile
@@ -292,6 +307,9 @@ const HexGrid: React.FC<HexGridProps> = ({
                                 state.targetableTiles && // Check if targetableTiles exists
                                 state.targetableTiles.some(tile => tile.q === coord.q && tile.r === coord.r);
                             
+                            // In placement mode, but without visual highlighting
+                            const isValidPlacement = false;
+                            
                             // Check if this tile is the attacker's/source unit's tile
                             const isAttackerTile = (state.attackMode || state.specialMoveMode) && 
                                 state.selectedUnitId && 
@@ -310,6 +328,7 @@ const HexGrid: React.FC<HexGridProps> = ({
                                     isSelected={isSelected}
                                     isAttackable={isAttackable}
                                     isTargetable={isTargetable}
+                                    isValidPlacement={isValidPlacement}
                                     isAttackerTile={isAttackerTile}
                                     onClick={() => handleTileClick(coord)}
                                 />

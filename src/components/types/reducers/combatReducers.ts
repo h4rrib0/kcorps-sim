@@ -140,23 +140,53 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
     return addLogEntry(state, `Attack failed: ${defender.name} is not in range or arc of ${weapon.name}!`);
   }
 
-  // For now, just apply some damage
-  const damage = weapon.damage;
+  // Get pilot for attacker if it exists
+  const attackerPilot = attacker.pilotId ? state.pilots.find(p => p.id === attacker.pilotId) : null;
+  const defenderPilot = defender.pilotId ? state.pilots.find(p => p.id === defender.pilotId) : null;
   
-  // Apply damage to the defender
+  // Calculate attack roll (2d6 + Pilot Aggression - Weapon Difficulty)
+  const diceRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; // 2d6
+  const attackRoll = diceRoll + (attackerPilot?.aggression || 0) - weapon.difficulty;
+  
+  // Calculate defense target number (Defender Pilot Preservation + Defender Agility)
+  const defenseTarget = (defenderPilot?.preservation || 0) + defender.agility;
+  
+  // Check if attack hits
+  const attackHits = attackRoll > defenseTarget;
+  
+  let damageAmount = 0;
+  let resultMessage = "";
+  
+  if (attackHits) {
+    // Calculate damage: Force + Penetration, modified by defender's mass and armor
+    const forceComponent = Math.max(0, weapon.force - Math.floor(defender.mass / 2));
+    const penetrationComponent = Math.max(0, weapon.penetration - defender.armor);
+    damageAmount = forceComponent + penetrationComponent;
+    
+    resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} and hits! ` +
+      `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+      `Dealing ${damageAmount} damage! (Force ${forceComponent} + Penetration ${penetrationComponent})`;
+  } else {
+    resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses! ` +
+      `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget})`;
+  }
+  
+  // Apply damage if the attack hit
   const updatedState = {
     ...state,
-    units: state.units.map(unit =>
-      unit.id === defender.id
-        ? {
-            ...unit,
-            durability: {
-              ...unit.durability,
-              current: Math.max(0, unit.durability.current - damage)
-            }
-          }
-        : unit
-    ),
+    units: attackHits 
+      ? state.units.map(unit =>
+          unit.id === defender.id
+            ? {
+                ...unit,
+                durability: {
+                  ...unit.durability,
+                  current: Math.max(0, unit.durability.current - damageAmount)
+                }
+              }
+            : unit
+        )
+      : state.units,
     attackMode: false,
     targetUnitId: undefined,
     selectedWeaponId: undefined,
@@ -164,10 +194,7 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
   };
   
   // Add the log entry with the attack result
-  return addLogEntry(
-    updatedState, 
-    `${attacker.name} attacks ${defender.name} with ${weapon.name} for ${damage} damage!`
-  );
+  return addLogEntry(updatedState, resultMessage);
 }
 
 // Handle entering special move mode
@@ -437,25 +464,61 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
     case 'damage': {
       // For damage moves targeting a specific enemy
       if (selectedMove.targeting === 'enemy' && target) {
-        const damage = 5; // Base damage, could be calculated based on pilot stats or unit properties
+        // Use the same combat calculation as regular attacks
+        const sourceUnitPilot = sourceUnit.pilotId ? state.pilots.find(p => p.id === sourceUnit.pilotId) : null;
+        const targetPilot = target.pilotId ? state.pilots.find(p => p.id === target.pilotId) : null;
+        
+        // For special moves, use base values
+        const moveForce = 3;
+        const movePenetration = 2;
+        const moveDifficulty = 1;
+        
+        // Calculate attack roll
+        const diceRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; // 2d6
+        const attackRoll = diceRoll + (sourceUnitPilot?.aggression || 0) - moveDifficulty;
+        
+        // Calculate defense target
+        const defenseTarget = (targetPilot?.preservation || 0) + target.agility;
+        
+        // Check if attack hits
+        const attackHits = attackRoll > defenseTarget;
+        
+        let damageAmount = 0;
+        let resultMessage = "";
+        
+        if (attackHits) {
+          // Calculate damage components
+          const forceComponent = Math.max(0, moveForce - Math.floor(target.mass / 2));
+          const penetrationComponent = Math.max(0, movePenetration - target.armor);
+          damageAmount = forceComponent + penetrationComponent;
+          
+          resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} and hits! ` +
+            `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+            `Dealing ${damageAmount} damage!`;
+        } else {
+          resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} but misses! ` +
+            `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget})`;
+        }
+        
+        // Apply damage if it hit
         updatedState = {
           ...updatedState,
-          units: updatedState.units.map(unit =>
-            unit.id === target.id
-              ? {
-                  ...unit,
-                  durability: {
-                    ...unit.durability,
-                    current: Math.max(0, unit.durability.current - damage)
-                  }
-                }
-              : unit
-          )
+          units: attackHits 
+            ? updatedState.units.map(unit =>
+                unit.id === target.id
+                  ? {
+                      ...unit,
+                      durability: {
+                        ...unit.durability,
+                        current: Math.max(0, unit.durability.current - damageAmount)
+                      }
+                    }
+                  : unit
+              )
+            : updatedState.units
         };
-        return addLogEntry(
-          updatedState, 
-          `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} for ${damage} damage!`
-        );
+        
+        return addLogEntry(updatedState, resultMessage);
       }
       
       // For area damage
@@ -474,25 +537,52 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
           );
         }
         
-        const damage = 3; // Usually area attacks do less damage than targeted ones
+        // For area attacks, use lower force and penetration values
+        const moveForce = 2; 
+        const movePenetration = 1;
+        
+        // Roll just once for an area attack
+        const diceRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; // 2d6
+        const sourceUnitPilot = sourceUnit.pilotId ? state.pilots.find(p => p.id === sourceUnit.pilotId) : null;
+        const attackRoll = diceRoll + (sourceUnitPilot?.aggression || 0) - 0; // Area attacks have no difficulty
+        
+        // Process each unit in the area
+        let hitCount = 0;
         updatedState = {
           ...updatedState,
-          units: updatedState.units.map(unit =>
-            unitsInArea.some(areaUnit => areaUnit.id === unit.id)
-              ? {
+          units: updatedState.units.map(unit => {
+            // If unit is in the affected area
+            if (unitsInArea.some(areaUnit => areaUnit.id === unit.id)) {
+              const targetPilot = unit.pilotId ? state.pilots.find(p => p.id === unit.pilotId) : null;
+              const defenseTarget = (targetPilot?.preservation || 0) + unit.agility;
+              
+              // Check if this specific unit is hit
+              const unitIsHit = attackRoll > defenseTarget;
+              
+              if (unitIsHit) {
+                hitCount++;
+                // Calculate damage for this specific unit
+                const forceComponent = Math.max(0, moveForce - Math.floor(unit.mass / 2));
+                const penetrationComponent = Math.max(0, movePenetration - unit.armor);
+                const unitDamage = forceComponent + penetrationComponent;
+                
+                // Apply damage
+                return {
                   ...unit,
                   durability: {
                     ...unit.durability,
-                    current: Math.max(0, unit.durability.current - damage)
+                    current: Math.max(0, unit.durability.current - unitDamage)
                   }
-                }
-              : unit
-          )
+                };
+              }
+            }
+            return unit;
+          })
         };
         
         return addLogEntry(
           updatedState, 
-          `${sourceUnit.name} uses ${selectedMove.name}, hitting ${unitsInArea.length} units for ${damage} damage each!`
+          `${sourceUnit.name} uses ${selectedMove.name}, hitting ${hitCount} out of ${unitsInArea.length} targets! (Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} = ${attackRoll})`
         );
       }
       break;

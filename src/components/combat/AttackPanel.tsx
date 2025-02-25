@@ -270,7 +270,7 @@ const AttackPanel: React.FC = () => {
                 >
                   <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{weapon.name}</div>
                   <div style={{ fontSize: '11px', marginTop: '2px' }}>
-                    DMG: {weapon.damage} | PEN: {weapon.penetration}
+                    Force: {weapon.force} | PEN: {weapon.penetration} | DIFF: {weapon.difficulty}
                   </div>
                   <div style={{ fontSize: '11px' }}>
                     {weapon.range === 'melee' ? '⚔️ Melee' : `🎯 Range: ${weapon.range}`} | 

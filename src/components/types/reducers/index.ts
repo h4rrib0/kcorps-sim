@@ -72,31 +72,61 @@ function handlePlaceUnit(state: GameState, action: GameAction): GameState {
     // Cancel special move mode if active
     specialMoveMode: isInSpecialMoveMode ? false : state.specialMoveMode,
     selectedSpecialMoveId: isInSpecialMoveMode ? undefined : state.selectedSpecialMoveId,
-    targetableTiles: isInSpecialMoveMode ? [] : state.targetableTiles
+    targetableTiles: isInSpecialMoveMode ? [] : state.targetableTiles,
+    // Exit placement mode
+    placementMode: false,
+    validPlacementTiles: []
   };
   
   const placedUnit = updatedPlacementState.units.find(unit => unit.id === action.unitId);
   
-  
-  return addLogEntry(updatedPlacementState, `${placedUnit?.name} placed at ${action.position.x},${action.position.y}.`);
+  // Add more descriptive log entry
+  return addLogEntry(updatedPlacementState, `📍 ${placedUnit?.name} has been deployed to the battlefield at position (${action.position.x},${action.position.y}).`);
 }
 
 // Helper function to handle UNPLACE_UNIT action
 function handleUnplaceUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'UNPLACE_UNIT') return state;
   
-  return {
+  // Find the unit being unplaced
+  const unit = state.units.find(u => u.id === action.unitId);
+  if (!unit) return state;
+  
+  const newState = {
     ...state,
     units: state.units.map(unit =>
       unit.id === action.unitId ? { ...unit, position: undefined } : unit
-    )
+    ),
+    // Cancel attack or special move modes if the unplaced unit is the selected unit
+    attackMode: state.selectedUnitId === action.unitId ? false : state.attackMode,
+    specialMoveMode: state.selectedUnitId === action.unitId ? false : state.specialMoveMode,
+    // Clear target if the unplaced unit is the target
+    targetUnitId: state.targetUnitId === action.unitId ? undefined : state.targetUnitId
   };
+  
+  return addLogEntry(newState, `${unit.name} has been removed from the battlefield.`);
 }
 
 // Main reducer
 export function gameReducer(state: GameState, action: GameAction): GameState {
   
   switch (action.type) {
+    case 'ENTER_PLACEMENT_MODE':
+      return {
+        ...state,
+        placementMode: true,
+        selectedUnitId: action.unitId,
+        // All hexes are valid for placement
+        validPlacementTiles: []
+      };
+      
+    case 'EXIT_PLACEMENT_MODE':
+      return {
+        ...state,
+        placementMode: false,
+        validPlacementTiles: []
+      };
+      
     case 'SELECT_TARGET':
       const targetState = {
         ...state,
@@ -120,6 +150,12 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     
     case 'LOG_ACTION':
       return addLogEntry(state, action.message);
+    
+    case 'TOGGLE_LOG':
+      return {
+        ...state,
+        showLog: !state.showLog
+      };
     
     case 'NEXT_TURN':
       return handleNextTurn(state);

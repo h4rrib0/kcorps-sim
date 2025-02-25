@@ -10,7 +10,7 @@ const LogPanel: React.FC<LogPanelProps> = ({
   maxHeight = '150px',
   width = 'auto'
 }) => {
-  const { state } = useGameState();
+  const { state, dispatch } = useGameState();
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to the bottom when new log entries are added
@@ -22,6 +22,33 @@ const LogPanel: React.FC<LogPanelProps> = ({
 
   if (state.log.length === 0) {
     return null;
+  }
+
+  if (!state.showLog) {
+    return (
+      <button
+        onClick={() => dispatch({ type: 'TOGGLE_LOG' })}
+        style={{
+          position: 'fixed',
+          left: '20px',
+          bottom: '20px',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          color: 'white',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          border: 'none',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          zIndex: 900,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+          fontFamily: 'monospace'
+        }}
+      >
+        <span style={{ fontSize: '16px', marginRight: '8px' }}>📋</span>
+        Show Combat Log
+      </button>
+    );
   }
 
   return (
@@ -43,7 +70,28 @@ const LogPanel: React.FC<LogPanelProps> = ({
         fontFamily: 'monospace'
       }}
     >
-      <h3 style={{ margin: '0 0 8px 0', color: '#ffc107', fontSize: '16px' }}>Combat Log</h3>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '8px'
+      }}>
+        <h3 style={{ margin: 0, color: '#ffc107', fontSize: '16px' }}>Combat Log</h3>
+        <button
+          onClick={() => dispatch({ type: 'TOGGLE_LOG' })}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#ffc107',
+            cursor: 'pointer',
+            fontSize: '14px',
+            padding: '2px 6px',
+            fontFamily: 'monospace'
+          }}
+        >
+          Hide
+        </button>
+      </div>
       <hr style={{ borderColor: '#ffc107', opacity: 0.3, margin: '0 0 10px 0' }} />
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -15,10 +15,13 @@ export type GameAction =
   | { type: 'REMOVE_STATUS'; unitId: string; status: keyof Unit['status'] }
   | { type: 'REMOVE_PILOT_STATUS'; pilotId: string; status: keyof Pilot['status'] }
   | { type: 'LOG_ACTION'; message: string }
+  | { type: 'TOGGLE_LOG' }
   | { type: 'ADD_UNIT'; unit: Unit }
   | { type: 'REMOVE_UNIT'; unitId: string }
   | { type: 'ADD_PILOT'; pilot: Pilot }
   | { type: 'REMOVE_PILOT_ENTRY'; pilotId: string }
+  | { type: 'ENTER_PLACEMENT_MODE'; unitId: string }
+  | { type: 'EXIT_PLACEMENT_MODE' }
   | { type: 'PLACE_UNIT'; unitId: string; position: Position }
   | { type: 'UNPLACE_UNIT'; unitId: string }
   | { type: 'ROTATE_UNIT_CLOCKWISE'; unitId: string }

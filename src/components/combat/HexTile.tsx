@@ -11,6 +11,7 @@ interface HexTileProps {
   isAttackable?: boolean;
   isTargetable?: boolean;
   isAttackerTile?: boolean;
+  isValidPlacement?: boolean;
   onClick?: () => void;
   debugOpacity?: number; // Added for adjustable debug text opacity
 }
@@ -31,6 +32,7 @@ const HexTile: React.FC<HexTileProps> = ({
   isAttackable = false,
   isTargetable = false,
   isAttackerTile = false,
+  isValidPlacement = false,
   onClick,
   debugOpacity = 0.5, // default opacity
 }) => {
@@ -82,6 +84,8 @@ const HexTile: React.FC<HexTileProps> = ({
           strokeOpacity="0.7"
         />
       )}
+      
+      {/* Placement indicator removed */}
       
       {/* Terrain markers */}
       {terrain === 'mountain' && (

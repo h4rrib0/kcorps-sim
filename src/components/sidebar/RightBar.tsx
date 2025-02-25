@@ -14,9 +14,13 @@ const RightBar: React.FC = () => {
     
     // Pilot form state with sensible defaults
     const [pilotName, setPilotName] = React.useState("");
-    const [precision, setPrecision] = React.useState(1);
+    const [aggression, setAggression] = React.useState(1);
     const [preservation, setPreservation] = React.useState(1);
     const [psyche, setPsyche] = React.useState(1);
+    
+    // Confirmation state
+    const [showDeleteConfirm, setShowDeleteConfirm] = React.useState<string | null>(null);
+    const [showUnplaceConfirm, setShowUnplaceConfirm] = React.useState<string | null>(null);
     
     const { state, dispatch } = useGameState();
 
@@ -38,7 +42,7 @@ const RightBar: React.FC = () => {
                 weapons: [
                     { 
                         name: `${unitName}'s Melee Weapon`, 
-                        damage: 3, 
+                        force: 3, 
                         penetration: 1, 
                         difficulty: 1,
                         range: 'melee',
@@ -46,7 +50,7 @@ const RightBar: React.FC = () => {
                     },
                     { 
                         name: `${unitName}'s Ranged Weapon`, 
-                        damage: 2, 
+                        force: 2, 
                         penetration: 1, 
                         difficulty: 2,
                         range: 3,
@@ -80,7 +84,7 @@ const RightBar: React.FC = () => {
             const newPilot = {
                 id: String(Date.now()),
                 name: pilotName,
-                precision: precision || 1, // Default to 1 if 0
+                aggression: aggression || 1, // Default to 1 if 0
                 preservation: preservation || 1, // Default to 1 if 0
                 psyche: psyche || 1, // Default to 1 if 0
                 sync: 0, // Always starts at 0
@@ -91,7 +95,7 @@ const RightBar: React.FC = () => {
             console.log('Adding pilot:', newPilot);
             dispatch({ type: 'ADD_PILOT', pilot: newPilot });
             setPilotName("");
-            setPrecision(1);
+            setAggression(1);
             setPreservation(1);
             setPsyche(1);
             
@@ -243,11 +247,11 @@ const RightBar: React.FC = () => {
                     />
                 </div>
                 <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Precision:</label>
+                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Aggression:</label>
                     <input
                         type="number"
-                        value={precision}
-                        onChange={(e) => setPrecision(Number(e.target.value))}
+                        value={aggression}
+                        onChange={(e) => setAggression(Number(e.target.value))}
                         style={{ 
                             padding: '0.5rem',
                             width: '100%',
@@ -346,7 +350,7 @@ const RightBar: React.FC = () => {
                         <div>
                             <strong>{pilot.name}</strong> <br />
                             <div style={{ marginTop: '5px', fontSize: '13px' }}>
-                                <span style={{ display: 'inline-block', marginRight: '10px' }}>PRE: {pilot.precision}</span>
+                                <span style={{ display: 'inline-block', marginRight: '10px' }}>AGG: {pilot.aggression}</span>
                                 <span style={{ display: 'inline-block', marginRight: '10px' }}>PRS: {pilot.preservation}</span>
                                 <span style={{ display: 'inline-block', marginRight: '10px' }}>PSY: {pilot.psyche}</span>
                                 <span style={{ display: 'inline-block' }}>SYNC: {pilot.sync}</span>
@@ -470,13 +474,13 @@ const RightBar: React.FC = () => {
                               onClick={(e) => {
                                   e.stopPropagation();
                                   
-                                  // First select this unit
-                                  dispatch({ type: 'SELECT_UNIT', unitId: unit.id });
+                                  // Enter placement mode with this unit
+                                  dispatch({ type: 'ENTER_PLACEMENT_MODE', unitId: unit.id });
                                   
                                   // Then show message to user
                                   dispatch({ 
                                     type: 'LOG_ACTION', 
-                                    message: `${unit.name} selected. Click on a hex tile to place it.` 
+                                    message: `${unit.name} ready to deploy! Click anywhere on the map to place it.` 
                                   });
                               }}
                               style={{
@@ -494,7 +498,7 @@ const RightBar: React.FC = () => {
                             <button
                               onClick={(e) => {
                                   e.stopPropagation();
-                                  dispatch({ type: 'REMOVE_UNIT', unitId: unit.id });
+                                  setShowDeleteConfirm(unit.id);
                               }}
                               style={{
                                   padding: '2px 6px',
@@ -538,29 +542,63 @@ const RightBar: React.FC = () => {
                                 </button>
                             </div>
                           )}
-                          {!unit.pilotId && state.selectedPilotId && unit.type === 'mecha' && (
+                          {!unit.pilotId && unit.type === 'mecha' && (
                             <div style={{ marginTop: '5px' }}>
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        dispatch({ 
-                                            type: 'ASSIGN_PILOT', 
-                                            unitId: unit.id, 
-                                            pilotId: state.selectedPilotId 
-                                        });
-                                    }}
-                                    style={{
-                                        padding: '2px 6px',
-                                        fontSize: '11px',
-                                        backgroundColor: '#4caf50',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '3px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Assign Selected Pilot
-                                </button>
+                                {state.selectedPilotId ? (
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            dispatch({ 
+                                                type: 'ASSIGN_PILOT', 
+                                                unitId: unit.id, 
+                                                pilotId: state.selectedPilotId 
+                                            });
+                                        }}
+                                        style={{
+                                            padding: '2px 6px',
+                                            fontSize: '11px',
+                                            backgroundColor: '#4caf50',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Assign Selected Pilot
+                                    </button>
+                                ) : (
+                                    <div>
+                                        <select
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => {
+                                                e.stopPropagation();
+                                                if (e.target.value) {
+                                                    dispatch({ 
+                                                        type: 'ASSIGN_PILOT', 
+                                                        unitId: unit.id, 
+                                                        pilotId: e.target.value
+                                                    });
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '2px 6px',
+                                                fontSize: '11px',
+                                                border: '1px solid #ccc',
+                                                borderRadius: '3px',
+                                                width: '100%',
+                                                marginBottom: '3px'
+                                            }}
+                                            defaultValue=""
+                                        >
+                                            <option value="" disabled>Select a pilot</option>
+                                            {state.pilots.map(pilot => (
+                                                <option key={pilot.id} value={pilot.id}>
+                                                    {pilot.name} (AGG:{pilot.aggression} PRS:{pilot.preservation} PSY:{pilot.psyche})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                           )}
                           {!unit.pilotId && unit.type === 'kaiju' && (
@@ -684,7 +722,8 @@ const RightBar: React.FC = () => {
                             >
                                 ⬆ Move
                             </button>
-                            
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>  
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -739,11 +778,99 @@ const RightBar: React.FC = () => {
                                 </button>
                             )}
                         </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowUnplaceConfirm(unit.id);
+                                }}
+                                style={{ 
+                                    padding: '0.3rem 0.5rem', 
+                                    border: 'none', 
+                                    backgroundColor: '#6c757d', 
+                                    color: 'white', 
+                                    borderRadius: '4px', 
+                                    cursor: 'pointer',
+                                    flex: '1'
+                                }}
+                            >
+                                ⬇ Remove from Field
+                            </button>
+                        </div>
                     </li>
                 ))}
             </ul>
         </div>
     );
+
+    // Confirmation dialog component
+    const ConfirmationDialog = ({ 
+        isOpen, 
+        message, 
+        onConfirm, 
+        onCancel 
+    }: { 
+        isOpen: boolean; 
+        message: string; 
+        onConfirm: () => void; 
+        onCancel: () => void 
+    }) => {
+        if (!isOpen) return null;
+        
+        return (
+            <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1000
+            }}>
+                <div style={{
+                    backgroundColor: 'white',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    width: '300px',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                }}>
+                    <h3 style={{ marginTop: 0 }}>Confirm Action</h3>
+                    <p>{message}</p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                        <button
+                            onClick={onCancel}
+                            style={{
+                                padding: '8px 12px',
+                                border: 'none',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            style={{
+                                padding: '8px 12px',
+                                border: 'none',
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div style={{ 
@@ -767,6 +894,32 @@ const RightBar: React.FC = () => {
                     {renderPilotsTabContent()}
                 </TabPanel.Tab>
             </TabPanel>
+            
+            {/* Delete Confirmation Dialog */}
+            <ConfirmationDialog
+                isOpen={showDeleteConfirm !== null}
+                message={`Are you sure you want to delete this unit? This action cannot be undone.`}
+                onConfirm={() => {
+                    if (showDeleteConfirm) {
+                        dispatch({ type: 'REMOVE_UNIT', unitId: showDeleteConfirm });
+                        setShowDeleteConfirm(null);
+                    }
+                }}
+                onCancel={() => setShowDeleteConfirm(null)}
+            />
+            
+            {/* Unplace Confirmation Dialog */}
+            <ConfirmationDialog
+                isOpen={showUnplaceConfirm !== null}
+                message={`Are you sure you want to remove this unit from the battlefield?`}
+                onConfirm={() => {
+                    if (showUnplaceConfirm) {
+                        dispatch({ type: 'UNPLACE_UNIT', unitId: showUnplaceConfirm });
+                        setShowUnplaceConfirm(null);
+                    }
+                }}
+                onCancel={() => setShowUnplaceConfirm(null)}
+            />
         </div>
     );
 };

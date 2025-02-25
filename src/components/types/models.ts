@@ -18,9 +18,9 @@ export interface SpecialMove {
 
 export interface Weapon {
   name: string;
-  damage: number;
-  penetration: number;
-  difficulty: number;
+  force: number; // Replaces damage, discounted by defender's mass
+  penetration: number; // Discounted by defender's armor
+  difficulty: number; // Subtracted from attack roll
   range: 'melee' | number; // 'melee' for same-tile, or number of tiles
   arcWidth?: number; // Width of attack arc in degrees (defaults to 60 if not specified)
   special?: string; // Special effects as text for GM reference
@@ -37,7 +37,7 @@ export interface Subsystem {
 export interface Pilot {
   id: string;
   name: string;
-  precision: number; // Affects attack rolls
+  aggression: number; // Used in attack rolls
   preservation: number; // Affects defense rolls
   psyche: number; // Affects sanity rolls
   sync: number; // Mecha interface ability, starts at 0
