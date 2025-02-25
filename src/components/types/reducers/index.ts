@@ -40,6 +40,8 @@ function handleNextTurn(state: GameState): GameState {
 // Helper function to handle PLACE_UNIT action
 function handlePlaceUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'PLACE_UNIT') return state;
+
+  console.log('Placing unit:', action.unitId, 'at', action.position);
   
   // Find the unit to be placed
   const unitToPlace = state.units.find(unit => unit.id === action.unitId);
@@ -93,69 +95,7 @@ function handleUnplaceUnit(state: GameState, action: GameAction): GameState {
 
 // Main reducer
 export function gameReducer(state: GameState, action: GameAction): GameState {
-  // Try each reducer in sequence
-  // Unit reducers
-  let newState = handleSelectUnit(state, action);
-  if (newState !== state) return newState;
   
-  newState = handleAddUnit(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleDamageUnit(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleRemoveUnit(state, action);
-  if (newState !== state) return newState;
-  
-  // Pilot reducers
-  newState = handleSelectPilot(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleAddPilot(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleAssignPilot(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleRemovePilot(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleRemovePilotEntry(state, action);
-  if (newState !== state) return newState;
-  
-  // Combat reducers
-  newState = handleEnterAttackMode(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleExitAttackMode(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleSelectWeapon(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleExecuteAttack(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleEnterSpecialMoveMode(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleExitSpecialMoveMode(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleSelectSpecialMove(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleExecuteSpecialMove(state, action);
-  if (newState !== state) return newState;
-  
-  // Movement reducers
-  newState = handleMoveUnitForward(state, action);
-  if (newState !== state) return newState;
-  
-  newState = handleRotateUnit(state, action);
-  if (newState !== state) return newState;
-  
-  // Then handle specific action types
   switch (action.type) {
     case 'SELECT_TARGET':
       const targetState = {
@@ -183,6 +123,66 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     
     case 'NEXT_TURN':
       return handleNextTurn(state);
+    
+    case 'SELECT_UNIT':
+      return handleSelectUnit(state, action);
+    
+    case 'ADD_UNIT':
+      return handleAddUnit(state, action);
+    
+    case 'DAMAGE_UNIT':
+      return handleDamageUnit(state, action);
+    
+    case 'REMOVE_UNIT':
+      return handleRemoveUnit(state, action);
+    
+    case 'SELECT_PILOT':
+      return handleSelectPilot(state, action);
+    
+    case 'ADD_PILOT':
+      return handleAddPilot(state, action);
+    
+    case 'ASSIGN_PILOT':
+      return handleAssignPilot(state, action);
+    
+    case 'REMOVE_PILOT':
+      return handleRemovePilot(state, action);
+    
+    case 'REMOVE_PILOT_ENTRY':
+      return handleRemovePilotEntry(state, action);
+    
+    case 'ENTER_ATTACK_MODE':
+      return handleEnterAttackMode(state, action);
+    
+    case 'EXIT_ATTACK_MODE':
+      return handleExitAttackMode(state, action);
+    
+    case 'SELECT_WEAPON':
+      return handleSelectWeapon(state, action);
+    
+    case 'EXECUTE_ATTACK':
+      return handleExecuteAttack(state, action);
+    
+    case 'ENTER_SPECIAL_MOVE_MODE':
+      return handleEnterSpecialMoveMode(state, action);
+    
+    case 'EXIT_SPECIAL_MOVE_MODE':
+      return handleExitSpecialMoveMode(state, action);
+    
+    case 'SELECT_SPECIAL_MOVE':
+      return handleSelectSpecialMove(state, action);
+    
+    case 'EXECUTE_SPECIAL_MOVE':
+      return handleExecuteSpecialMove(state, action);
+    
+    case 'MOVE_UNIT_FORWARD':
+      return handleMoveUnitForward(state, action);
+    
+    case 'ROTATE_UNIT_CLOCKWISE':
+      return handleRotateUnit(state, action);
+
+    case 'ROTATE_UNIT_COUNTERCLOCKWISE':
+      return handleRotateUnit(state, action);
     
     default:
       return state;
