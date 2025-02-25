@@ -128,23 +128,27 @@ const AttackPanel: React.FC = () => {
           {/* Segment targeting dropdown */}
           {hasTargetableSegments && target && (
             <select 
-              value={state.targetSegmentId || ''} 
+              value={state.targetSegmentId || (target.segments.find(segment => segment.type === 'TORSO')?.id || '')} 
               onChange={(e) => handleSegmentSelect(e.target.value)}
               style={{
-                padding: '4px 8px',
-                fontSize: '11px',
-                border: '1px solid #ccc',
-                borderRadius: '4px',
-                backgroundColor: '#fff',
-                marginLeft: '8px'
+              padding: '4px 8px',
+              fontSize: '11px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              backgroundColor: '#fff',
+              marginLeft: '8px'
               }}
             >
-              <option value="">Target Whole</option>
-              {target.segments.map(segment => (
+              {target.segments.map(segment => {
+              // Mark the TORSO/core as the default target
+              const isCoreSegment = segment.type === 'TORSO';
+              return (
                 <option key={segment.id} value={segment.id}>
-                  {segment.name} ({segment.durability}/{segment.maxDurability})
+                {segment.name} ({segment.durability}/{segment.maxDurability})
+                {isCoreSegment ? ' [Default]' : ' [+3 Difficulty]'}
                 </option>
-              ))}
+              );
+              })}
             </select>
           )}
         </div>

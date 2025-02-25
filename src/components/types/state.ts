@@ -1,5 +1,5 @@
 // state.ts - Game state and actions
-import { Unit, Pilot, Segment } from './models';
+import { Unit, Pilot, Segment, SpecialMove } from './models';
 import { MapData } from '../../utils/hexCalculations';
 
 export interface GameState {

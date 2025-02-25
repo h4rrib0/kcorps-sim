@@ -50,7 +50,7 @@ export type GameAction =
   | { type: 'ADD_SUBSYSTEM'; unitId: string; segmentId: string; subsystem: Subsystem }
   | { type: 'REMOVE_SUBSYSTEM'; unitId: string; subsystemId: string }
   | { type: 'EXECUTE_ATTACK' }
-  | { type: 'EXECUTE_SPECIAL_MOVE' }
+  | { type: 'EXECUTE_SPECIAL_MOVE'; moveData?: { id: string; name: string; effect: string; targeting: string } }
   | { type: 'NEXT_TURN' }
   // Map-related actions
   | { type: 'ENTER_EDITOR_MODE' }

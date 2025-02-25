@@ -183,9 +183,18 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
   const attackerPilot = attacker.pilotId ? state.pilots.find(p => p.id === attacker.pilotId) : null;
   const defenderPilot = defender.pilotId ? state.pilots.find(p => p.id === defender.pilotId) : null;
   
-  // Calculate attack roll (2d6 + Pilot Aggression - Weapon Difficulty)
+  // Determine target segment for difficulty calculation
+  const targetSegmentForDifficulty = state.targetSegmentId
+    ? defender.segments.find(s => s.id === state.targetSegmentId) 
+    : null;
+  
+  // Add +3 difficulty modifier for non-core segments
+  const isNonCoreTarget = targetSegmentForDifficulty && targetSegmentForDifficulty.type !== 'TORSO';
+  const segmentDifficultyModifier = isNonCoreTarget ? 3 : 0;
+  
+  // Calculate attack roll (2d6 + Pilot Aggression - Weapon Difficulty - Non-core modifier)
   const diceRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; // 2d6
-  const attackRoll = diceRoll + (attackerPilot?.aggression || 0) - weapon.difficulty;
+  const attackRoll = diceRoll + (attackerPilot?.aggression || 0) - weapon.difficulty - segmentDifficultyModifier;
   
   // Calculate defense target number (Defender Pilot Preservation + Defender Agility)
   const defenseTarget = (defenderPilot?.preservation || 0) + defender.agility;
@@ -201,7 +210,8 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
     const targetSegment = state.targetSegmentId 
       ? defender.segments.find(s => s.id === state.targetSegmentId)
       : defender.segments.length > 0 
-        ? defender.segments[Math.floor(Math.random() * defender.segments.length)] // Random segment if none targeted
+        ? defender.segments.find(s => s.type === 'TORSO') || // Default to TORSO/core segment
+          defender.segments[Math.floor(Math.random() * defender.segments.length)] // Fallback to random if no TORSO
         : null;
         
     if (!targetSegment && defender.segments.length > 0) {
@@ -216,7 +226,7 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
       damageAmount = forceComponent + penetrationComponent;
       
       resultMessage = `${attacker.name} attacks ${defender.name}'s ${targetSegment.name} with ${weapon.name} and hits! ` +
-        `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+        `(Roll: ${diceRoll} + ${attackerPilot?.aggression || 0} - ${weapon.difficulty}${isNonCoreTarget ? ` - ${segmentDifficultyModifier} (non-core)` : ''} = ${attackRoll} vs ${defenseTarget}) ` +
         `Dealing ${damageAmount} damage! (Force ${forceComponent} + Penetration ${penetrationComponent})`;
       
       // Apply damage to the specific segment (fixed damage calculation)
@@ -543,7 +553,180 @@ export function handleSelectSpecialMove(state: GameState, action: GameAction): G
 
 // Modified special move execution to handle segments
 export function handleExecuteSpecialMove(state: GameState, action: GameAction): GameState {
-  // Validate that we have needed values
+  if (action.type !== 'EXECUTE_SPECIAL_MOVE') return state;
+
+  // Check if we have a direct moveData provided (for built-in actions like grapple)
+  if (action.moveData) {
+    // Handle direct special move with provided data
+    const sourceUnit = state.units.find(unit => unit.id === state.selectedUnitId);
+    if (!sourceUnit) {
+      return addErrorEntry(state, "Selected unit not found");
+    }
+
+    // Set up basic state with cleanup
+    let updatedState = {
+      ...state,
+      specialMoveMode: false,
+      targetUnitId: undefined,
+      targetSegmentId: undefined,
+      selectedSpecialMoveId: undefined,
+      targetableTiles: []
+    };
+
+    // Handle built-in actions
+    if (action.moveData.effect === 'buff' && action.moveData.name === 'Get Up!') {
+      // Make sure the unit is actually downed
+      if (!sourceUnit.status.downed) {
+        return addLogEntry(state, `${sourceUnit.name} is not currently downed.`);
+      }
+      
+      // Get Up! action - remove downed status
+      updatedState = {
+        ...updatedState,
+        units: updatedState.units.map(unit =>
+          unit.id === sourceUnit.id
+            ? {
+                ...unit,
+                status: {
+                  ...unit.status,
+                  downed: false
+                }
+              }
+            : unit
+        )
+      };
+      
+      return addLogEntry(updatedState, `${sourceUnit.name} gets back up, recovering from downed status!`);
+    }
+    else if (action.moveData.effect === 'grapple' && action.moveData.name === 'Grapple Enemy') {
+      // Grapple Enemy action
+      const target = state.units.find(unit => unit.id === state.targetUnitId);
+      if (!target) {
+        return addLogEntry(updatedState, `No target selected for grapple action.`);
+      }
+
+      // Check if units are in the same tile (stacked)
+      const sourcePos = sourceUnit.position;
+      const targetPos = target.position;
+      if (!sourcePos || !targetPos) {
+        return addLogEntry(updatedState, `Both units must be on the field to grapple.`);
+      }
+
+      // Units must be in the same hex (stacked)
+      if (sourcePos.x !== targetPos.x || sourcePos.y !== targetPos.y) {
+        return addLogEntry(updatedState, `${target.name} must be in the same tile as ${sourceUnit.name} to grapple.`);
+      }
+
+      // Check if source unit is already grappling or being grappled
+      if (sourceUnit.status.grappled) {
+        return addLogEntry(updatedState, `${sourceUnit.name} is already engaged in a grapple!`);
+      }
+      
+      // Roll opposed Mass check (1d6 + mass)
+      const attackerRoll = Math.floor(Math.random() * 6) + 1 + sourceUnit.mass;
+      const defenderRoll = Math.floor(Math.random() * 6) + 1 + target.mass;
+      
+      // Check if target is already grappled
+      if (target.status.grappled) {
+        // If target is grappled, try to down them
+        if (attackerRoll > defenderRoll) {
+          // Success - down the target and disengage
+          updatedState = {
+            ...updatedState,
+            units: updatedState.units.map(unit => 
+              unit.id === target.id
+                ? {
+                    ...unit,
+                    status: {
+                      ...unit.status,
+                      grappled: false,
+                      downed: true
+                    }
+                  }
+                : unit
+            )
+          };
+          
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} overpowers the grappled ${target.name} (${attackerRoll} vs ${defenderRoll}), downing them and breaking the grapple!`
+          );
+        } else {
+          // Failed to down them
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} tries to overpower the grappled ${target.name}, but fails (${attackerRoll} vs ${defenderRoll}).`
+          );
+        }
+      } else if (sourceUnit.status.grappled) {
+        // Try to break free from a grapple
+        if (attackerRoll > defenderRoll) {
+          // Success - break free
+          updatedState = {
+            ...updatedState,
+            units: updatedState.units.map(unit => 
+              unit.id === sourceUnit.id
+                ? {
+                    ...unit,
+                    status: {
+                      ...unit.status,
+                      grappled: false
+                    }
+                  }
+                : unit
+            )
+          };
+          
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} successfully breaks free from ${target.name}'s grapple (${attackerRoll} vs ${defenderRoll})!`
+          );
+        } else {
+          // Failed to break free
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} struggles to break free from ${target.name}'s grapple, but fails (${attackerRoll} vs ${defenderRoll}).`
+          );
+        }
+      } else {
+        // Attempt a new grapple
+        if (attackerRoll > defenderRoll) {
+          // Success - grapple the target
+          updatedState = {
+            ...updatedState,
+            units: updatedState.units.map(unit => 
+              unit.id === target.id
+                ? {
+                    ...unit,
+                    status: {
+                      ...unit.status,
+                      grappled: true
+                    }
+                  }
+                : unit
+            )
+          };
+          
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} successfully grapples ${target.name} (${attackerRoll} vs ${defenderRoll})! ${target.name} is now grappled and certain weapons/systems are restricted.`
+          );
+        } else {
+          // Failed to grapple
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} attempts to grapple ${target.name}, but fails to get a hold (${attackerRoll} vs ${defenderRoll}).`
+          );
+        }
+      }
+    }
+
+    // If we reach here, it's an unhandled direct action
+    return addLogEntry(updatedState, `Unhandled direct special action: ${action.moveData.name}`);
+  }
+  
+  // If no direct moveData, proceed with normal special move handling
+  // Validate that we have needed values for normal special move
   if (!state.selectedUnitId || !state.selectedSpecialMoveId) {
     return addErrorEntry(state, "Missing unit or special move selection");
   }
@@ -673,7 +856,8 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
         const targetSegment = state.targetSegmentId && target.segments.length > 0
           ? target.segments.find(s => s.id === state.targetSegmentId)
           : target.segments.length > 0 
-            ? target.segments[Math.floor(Math.random() * target.segments.length)] // Random segment
+            ? target.segments.find(s => s.type === 'TORSO') || // Default to TORSO/core segment
+              target.segments[Math.floor(Math.random() * target.segments.length)] // Fallback to random if no TORSO
             : null;
             
         // Use the same combat calculation as regular attacks
@@ -685,9 +869,13 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
         const movePenetration = 2;
         const moveDifficulty = 1;
         
-        // Calculate attack roll
+        // Check if attacking a non-core segment and apply modifier
+        const isNonCoreTarget = targetSegment && targetSegment.type !== 'TORSO';
+        const segmentDifficultyModifier = isNonCoreTarget ? 3 : 0;
+        
+        // Calculate attack roll with segment difficulty modifier
         const diceRoll = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1; // 2d6
-        const attackRoll = diceRoll + (sourceUnitPilot?.aggression || 0) - moveDifficulty;
+        const attackRoll = diceRoll + (sourceUnitPilot?.aggression || 0) - moveDifficulty - segmentDifficultyModifier;
         
         // Calculate defense target
         const defenseTarget = (targetPilot?.preservation || 0) + target.agility;
@@ -709,7 +897,7 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
           
           if (targetSegment) {
             resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name}'s ${targetSegment.name} and hits! ` +
-              `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty} = ${attackRoll} vs ${defenseTarget}) ` +
+              `(Roll: ${diceRoll} + ${sourceUnitPilot?.aggression || 0} - ${moveDifficulty}${isNonCoreTarget ? ` - ${segmentDifficultyModifier} (non-core)` : ''} = ${attackRoll} vs ${defenseTarget}) ` +
               `Dealing ${damageAmount} damage!`;
           } else {
             resultMessage = `${sourceUnit.name} uses ${selectedMove.name} on ${target.name} and hits! ` +
@@ -1061,6 +1249,150 @@ export function handleExecuteSpecialMove(state: GameState, action: GameAction): 
           updatedState, 
           `${sourceUnit.name} focuses, improving their next attack accuracy.`
         );
+      }
+      
+      // Get Up! move to remove downed status
+      if (selectedMove.name === 'Get Up!' && selectedMove.targeting === 'self') {
+        // Check if unit is downed
+        if (!sourceUnit.status.downed) {
+          return addLogEntry(
+            updatedState, 
+            `${sourceUnit.name} attempts to get up, but is not currently downed.`
+          );
+        }
+        
+        // Remove downed status
+        updatedState = {
+          ...updatedState,
+          units: updatedState.units.map(unit => 
+            unit.id === sourceUnit.id
+              ? {
+                  ...unit,
+                  status: {
+                    ...unit.status,
+                    downed: false
+                  }
+                }
+              : unit
+          )
+        };
+        
+        return addLogEntry(
+          updatedState, 
+          `${sourceUnit.name} gets back up, recovering from downed status!`
+        );
+      }
+      break;
+    }
+    
+    case 'grapple': {
+      // Grapple Enemy move implementation
+      if (selectedMove.name === 'Grapple Enemy' && target) {
+        // Check if unit is already grappling or being grappled
+        if (sourceUnit.status.grappled) {
+          return addLogEntry(
+            updatedState,
+            `${sourceUnit.name} attempts to grapple ${target.name}, but is already engaged in a grapple!`
+          );
+        }
+        
+        // Roll opposed Mass check (1d6 + mass)
+        const attackerRoll = Math.floor(Math.random() * 6) + 1 + sourceUnit.mass;
+        const defenderRoll = Math.floor(Math.random() * 6) + 1 + target.mass;
+        
+        // Check if target is already grappled
+        if (target.status.grappled) {
+          // If target is grappled, try to down them
+          if (attackerRoll > defenderRoll) {
+            // Success - down the target and disengage
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit => 
+                unit.id === target.id
+                  ? {
+                      ...unit,
+                      status: {
+                        ...unit.status,
+                        grappled: false,
+                        downed: true
+                      }
+                    }
+                  : unit
+              )
+            };
+            
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} overpowers the grappled ${target.name} (${attackerRoll} vs ${defenderRoll}), downing them and breaking the grapple!`
+            );
+          } else {
+            // Failed to down them
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} tries to overpower the grappled ${target.name}, but fails (${attackerRoll} vs ${defenderRoll}).`
+            );
+          }
+        } else if (sourceUnit.status.grappled) {
+          // Try to break free from a grapple
+          if (attackerRoll > defenderRoll) {
+            // Success - break free
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit => 
+                unit.id === sourceUnit.id
+                  ? {
+                      ...unit,
+                      status: {
+                        ...unit.status,
+                        grappled: false
+                      }
+                    }
+                  : unit
+              )
+            };
+            
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} successfully breaks free from ${target.name}'s grapple (${attackerRoll} vs ${defenderRoll})!`
+            );
+          } else {
+            // Failed to break free
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} struggles to break free from ${target.name}'s grapple, but fails (${attackerRoll} vs ${defenderRoll}).`
+            );
+          }
+        } else {
+          // Attempt a new grapple
+          if (attackerRoll > defenderRoll) {
+            // Success - grapple the target
+            updatedState = {
+              ...updatedState,
+              units: updatedState.units.map(unit => 
+                unit.id === target.id
+                  ? {
+                      ...unit,
+                      status: {
+                        ...unit.status,
+                        grappled: true
+                      }
+                    }
+                  : unit
+              )
+            };
+            
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} successfully grapples ${target.name} (${attackerRoll} vs ${defenderRoll})! ${target.name} is now grappled and certain weapons/systems are restricted.`
+            );
+          } else {
+            // Failed to grapple
+            return addLogEntry(
+              updatedState,
+              `${sourceUnit.name} attempts to grapple ${target.name}, but fails to get a hold (${attackerRoll} vs ${defenderRoll}).`
+            );
+          }
+        }
       }
       break;
     }

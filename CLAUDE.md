@@ -26,3 +26,33 @@
 - Keep map editing logic separate from game logic
 - State persistence handles: auto-save, manual save, export/import, and reset
 - Components implement proper parent-child relationships for state flow
+
+## TODO List
+
+### Combat System Improvements
+- [ ] Implement initiative-based turn order system
+- [ ] Add cooldown tracking for special moves
+- [ ] Develop more nuanced weapon effects (stun, EMP, etc.)
+- [ ] Create status effect visualization for all status types
+- [ ] Add unit abilities that trigger on certain conditions (e.g., when damaged)
+
+### UI Enhancements
+- [ ] Create a turn/phase indicator
+
+### Content Creation
+- [ ] Design more unit types with unique capabilities
+- [ ] Create scenario objectives (capture points, survive X turns)
+- [ ] Build a campaign system with linked missions
+- [ ] Add more terrain types with gameplay effects
+- [ ] Implement height/elevation system for terrain
+
+### Technical Improvements
+- [ ] Refactor combat code for better organization
+- [ ] Implement proper undo/redo system
+- [ ] Create proper unit test suite
+
+### Documentation
+- [ ] Write player manual/tutorial
+- [ ] Create API documentation
+- [ ] Document game rules and mechanics
+- [ ] Add comments to complex algorithm implementations

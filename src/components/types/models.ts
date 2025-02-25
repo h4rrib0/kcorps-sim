@@ -11,7 +11,7 @@ export interface SpecialMove {
   description: string;
   cooldown: number; // Turns until it can be used again
   currentCooldown: number; // Current cooldown state
-  effect: 'damage' | 'defense' | 'utility' | 'healing' | 'buff';
+  effect: 'damage' | 'defense' | 'utility' | 'healing' | 'buff' | 'grapple';
   targeting: 'self' | 'ally' | 'enemy' | 'area';
   range?: number; // Range in tiles if targeting is not 'self'
 }

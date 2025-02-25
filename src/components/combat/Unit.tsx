@@ -172,6 +172,28 @@ const Unit: React.FC<UnitProps> = ({
                 />
             )}
             
+            {unit.status.grappled && (
+                <circle
+                    cx={unitSize * 0.0}
+                    cy={unitSize * 0.7}
+                    r={unitSize / 3}
+                    fill="#9575cd" // Purple for grappled
+                    stroke="#000"
+                    strokeWidth="1"
+                />
+            )}
+            
+            {unit.status.downed && (
+                <circle
+                    cx={-unitSize * 0.0}
+                    cy={-unitSize * 0.7}
+                    r={unitSize / 3}
+                    fill="#e0e0e0" // Gray for downed
+                    stroke="#000"
+                    strokeWidth="1"
+                />
+            )}
+            
             {unit.status.prone && (
                 <circle
                     cx={-unitSize * 0.7}

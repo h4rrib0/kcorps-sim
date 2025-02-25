@@ -22,6 +22,7 @@ const RightBar: React.FC = () => {
     // Confirmation state
     const [showDeleteConfirm, setShowDeleteConfirm] = React.useState<string | null>(null);
     const [showUnplaceConfirm, setShowUnplaceConfirm] = React.useState<string | null>(null);
+    const [showGrappleTargets, setShowGrappleTargets] = React.useState<string | null>(null);
     
     const { state, dispatch } = useGameState();
 
@@ -793,6 +794,93 @@ const RightBar: React.FC = () => {
                             >
                                 ⚔️ Attack
                             </button>
+                            {/* Get Up! button - only shows when the unit is downed */}
+                            {unit.status.downed && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Execute Get Up! action on this unit
+                                        dispatch({ 
+                                            type: 'EXECUTE_SPECIAL_MOVE', 
+                                            moveData: {
+                                                id: 'get-up-action',
+                                                name: 'Get Up!', 
+                                                effect: 'buff',
+                                                targeting: 'self'
+                                            }
+                                        });
+                                    }}
+                                    style={{ 
+                                        padding: '0.3rem 0.5rem', 
+                                        border: 'none', 
+                                        backgroundColor: '#757575', 
+                                        color: 'white', 
+                                        borderRadius: '4px', 
+                                        cursor: 'pointer',
+                                        flex: '1'
+                                    }}
+                                >
+                                    🔄 Get Up!
+                                </button>
+                            )}
+                            
+                            {/* Grapple button - only shows when unit is not downed */}
+                            {!unit.status.downed && (
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        
+                                        // Find any units in the same tile with this unit
+                                        const unitsInSameTile = state.units.filter(u => 
+                                            u.id !== unit.id && // Not self
+                                            u.position && unit.position && // Both have positions
+                                            u.position.x === unit.position.x && // Same x coordinate  
+                                            u.position.y === unit.position.y // Same y coordinate
+                                        );
+                                        
+                                        if (unitsInSameTile.length === 0) {
+                                            // No units to grapple
+                                            dispatch({ 
+                                                type: 'LOG_ACTION',
+                                                message: 'No other units in the same tile to grapple'
+                                            });
+                                        } else if (unitsInSameTile.length === 1) {
+                                            // Only one unit available, target it automatically
+                                            dispatch({ type: 'SELECT_TARGET', unitId: unitsInSameTile[0].id });
+                                            // Then execute grapple immediately
+                                            dispatch({ 
+                                                type: 'EXECUTE_SPECIAL_MOVE', 
+                                                moveData: {
+                                                    id: 'grapple-action',
+                                                    name: 'Grapple Enemy',
+                                                    effect: 'grapple',
+                                                    targeting: 'enemy'
+                                                }
+                                            });
+                                        } else {
+                                            // Multiple units, need to select one
+                                            dispatch({ 
+                                                type: 'LOG_ACTION',
+                                                message: 'Multiple units in tile. Select which unit to grapple.'
+                                            });
+                                            
+                                            // Show a temporary selection UI for grapple targets
+                                            setShowGrappleTargets(unit.id);
+                                        }
+                                    }}
+                                    style={{ 
+                                        padding: '0.3rem 0.5rem', 
+                                        border: 'none', 
+                                        backgroundColor: '#9575cd', 
+                                        color: 'white', 
+                                        borderRadius: '4px', 
+                                        cursor: 'pointer',
+                                        flex: '1'
+                                    }}
+                                >
+                                    🤼 Grapple
+                                </button>
+                            )}
                             <button 
                                 onClick={(e) => {
                                     e.stopPropagation();
@@ -972,6 +1060,115 @@ const RightBar: React.FC = () => {
                 }}
                 onCancel={() => setShowUnplaceConfirm(null)}
             />
+            
+            {/* Grapple Target Selection Dialog */}
+            {showGrappleTargets && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    zIndex: 1000
+                }}>
+                    <div style={{
+                        backgroundColor: 'white',
+                        padding: '20px',
+                        borderRadius: '8px',
+                        width: '300px',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Select Grapple Target</h3>
+                        <p>Choose a unit in the same tile to grapple:</p>
+                        
+                        <div style={{ 
+                            maxHeight: '200px', 
+                            overflowY: 'auto',
+                            marginBottom: '15px'
+                        }}>
+                            {state.units
+                                .filter(u => {
+                                    const grapplingUnit = state.units.find(unit => unit.id === showGrappleTargets);
+                                    return (
+                                        u.id !== showGrappleTargets && // Not self
+                                        u.position && grapplingUnit?.position && // Both have positions
+                                        u.position.x === grapplingUnit.position.x && // Same x
+                                        u.position.y === grapplingUnit.position.y // Same y
+                                    );
+                                })
+                                .map(unit => (
+                                    <div 
+                                        key={unit.id}
+                                        onClick={() => {
+                                            // Select the target
+                                            dispatch({ type: 'SELECT_TARGET', unitId: unit.id });
+                                            // Execute the grapple
+                                            dispatch({ 
+                                                type: 'EXECUTE_SPECIAL_MOVE', 
+                                                moveData: {
+                                                    id: 'grapple-action',
+                                                    name: 'Grapple Enemy',
+                                                    effect: 'grapple',
+                                                    targeting: 'enemy'
+                                                }
+                                            });
+                                            // Close dialog
+                                            setShowGrappleTargets(null);
+                                        }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            padding: '10px',
+                                            margin: '5px 0',
+                                            backgroundColor: '#f5f5f5',
+                                            borderRadius: '4px',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            borderRadius: '50%',
+                                            backgroundColor: (() => {
+                                                const hash = unit.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                                                const hue = hash % 360;
+                                                return `hsl(${hue}, 80%, 70%)`;
+                                            })(),
+                                            marginRight: '10px'
+                                        }} />
+                                        <div>
+                                            <strong>{unit.name}</strong>
+                                            <div style={{ fontSize: '12px' }}>
+                                                HP: {unit.durability.current}/{unit.durability.max} | Mass: {unit.mass}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            }
+                        </div>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setShowGrappleTargets(null)}
+                                style={{
+                                    padding: '8px 12px',
+                                    border: 'none',
+                                    backgroundColor: '#6c757d',
+                                    color: 'white',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

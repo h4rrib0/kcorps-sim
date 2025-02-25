@@ -198,6 +198,7 @@ const SpecialMovePanel: React.FC = () => {
                   {move.effect === 'utility' && '⚙️ Utility'}
                   {move.effect === 'healing' && '❤️ Healing'}
                   {move.effect === 'buff' && '⬆️ Buff'}
+                  {move.effect === 'grapple' && '🤼 Grapple'}
                   {' | '}
                   {move.targeting === 'self' && 'Target: Self'}
                   {move.targeting === 'ally' && 'Target: Ally'}
@@ -262,6 +263,7 @@ const SpecialMovePanel: React.FC = () => {
                   {move.effect === 'utility' && '⚙️ Utility'}
                   {move.effect === 'healing' && '❤️ Healing'}
                   {move.effect === 'buff' && '⬆️ Buff'}
+                  {move.effect === 'grapple' && '🤼 Grapple'}
                   {' | '}
                   {move.targeting === 'self' && 'Target: Self'}
                   {move.targeting === 'ally' && 'Target: Ally'}

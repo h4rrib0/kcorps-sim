@@ -59,15 +59,11 @@ export function handleSelectUnit(state: GameState, action: GameAction): GameStat
 export function handleAddUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'ADD_UNIT') return state;
   
-  console.log('handleAddUnit called with:', action.unit);
-  console.log('Current units before:', state.units);
-  
   const newState = {
     ...state,
     units: [...state.units, action.unit]
   };
   
-  console.log('Units after update:', newState.units);
   return addLogEntry(newState, `Unit ${action.unit.name} (${action.unit.type}) added to the battle.`);
 }
 
