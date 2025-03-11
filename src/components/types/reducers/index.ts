@@ -7,11 +7,7 @@ import {
   handleEnterAttackMode, handleExitAttackMode, handleSelectWeapon, handleExecuteAttack,
   handleEnterSpecialMoveMode, handleExitSpecialMoveMode, handleSelectSpecialMove, handleExecuteSpecialMove
 } from './combatReducers';
-import {
-  handleAddSegment, handleRemoveSegment, handleAddSubsystem, handleRemoveSubsystem,
-  handleDamageSegment, handleToggleSubsystem, handleEnterSegmentTargetingMode,
-  handleExitSegmentTargetingMode, handleSelectTargetSegment
-} from './segmentReducers';
+// Segment reducers removed in favor of unified durability system
 import { handleMoveUnitForward, handleRotateUnit } from './movementReducers';
 import { mapReducers } from './mapReducers';
 import { addLogEntry } from './utils';
@@ -73,7 +69,6 @@ function handlePlaceUnit(state: GameState, action: GameAction): GameState {
     // Cancel attack mode if active
     attackMode: isInAttackMode ? false : state.attackMode,
     targetUnitId: isInAttackMode ? undefined : state.targetUnitId,
-    targetSegmentId: isInAttackMode ? undefined : state.targetSegmentId,
     selectedWeaponId: isInAttackMode ? undefined : state.selectedWeaponId,
     attackableTiles: isInAttackMode ? [] : state.attackableTiles,
     // Cancel special move mode if active
@@ -82,7 +77,6 @@ function handlePlaceUnit(state: GameState, action: GameAction): GameState {
     targetableTiles: isInSpecialMoveMode ? [] : state.targetableTiles,
     // Exit placement mode
     placementMode: false,
-    segmentTargetingMode: false,
     validPlacementTiles: []
   };
   
@@ -108,10 +102,8 @@ function handleUnplaceUnit(state: GameState, action: GameAction): GameState {
     // Cancel attack or special move modes if the unplaced unit is the selected unit
     attackMode: state.selectedUnitId === action.unitId ? false : state.attackMode,
     specialMoveMode: state.selectedUnitId === action.unitId ? false : state.specialMoveMode,
-    segmentTargetingMode: false,
     // Clear target if the unplaced unit is the target
-    targetUnitId: state.targetUnitId === action.unitId ? undefined : state.targetUnitId,
-    targetSegmentId: undefined
+    targetUnitId: state.targetUnitId === action.unitId ? undefined : state.targetUnitId
   };
   
   return addLogEntry(newState, `${unit.name} has been removed from the battlefield.`);
@@ -181,8 +173,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       
       return targetState;
     
-    case 'SELECT_TARGET_SEGMENT':
-      return handleSelectTargetSegment(state, action);
+    // Segment targeting removed with unified durability system
     
     case 'PLACE_UNIT':
       return handlePlaceUnit(state, action);
@@ -217,11 +208,9 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'DAMAGE_UNIT':
       return handleDamageUnit(state, action);
     
-    case 'DAMAGE_SEGMENT':
-      return handleDamageSegment(state, action);
+    // Segment damage removed with unified durability system
     
-    case 'TOGGLE_SUBSYSTEM':
-      return handleToggleSubsystem(state, action);
+    // Subsystem toggling will be added back when needed
     
     case 'REMOVE_UNIT':
       return handleRemoveUnit(state, action);
@@ -247,11 +236,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'EXIT_ATTACK_MODE':
       return handleExitAttackMode(state, action);
     
-    case 'ENTER_SEGMENT_TARGETING_MODE':
-      return handleEnterSegmentTargetingMode(state, action);
-    
-    case 'EXIT_SEGMENT_TARGETING_MODE':
-      return handleExitSegmentTargetingMode(state);
+    // Segment targeting removed with unified durability system
     
     case 'SELECT_WEAPON':
       return handleSelectWeapon(state, action);
@@ -271,17 +256,7 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'EXECUTE_SPECIAL_MOVE':
       return handleExecuteSpecialMove(state, action);
     
-    case 'ADD_SEGMENT':
-      return handleAddSegment(state, action);
-    
-    case 'REMOVE_SEGMENT':
-      return handleRemoveSegment(state, action);
-    
-    case 'ADD_SUBSYSTEM':
-      return handleAddSubsystem(state, action);
-    
-    case 'REMOVE_SUBSYSTEM':
-      return handleRemoveSubsystem(state, action);
+    // Segment management removed with unified durability system
     
     case 'MOVE_UNIT_FORWARD':
       return handleMoveUnitForward(state, action);

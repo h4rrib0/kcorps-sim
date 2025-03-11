@@ -2,6 +2,7 @@
 import { GameState } from '../state';
 import { GameAction } from '../actions';
 import { addLogEntry, addErrorEntry } from './utils';
+import { createDefaultUnit } from '../../../utils/unitUtils';
 
 // Handle unit selection
 export function handleSelectUnit(state: GameState, action: GameAction): GameState {
@@ -59,12 +60,29 @@ export function handleSelectUnit(state: GameState, action: GameAction): GameStat
 export function handleAddUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'ADD_UNIT') return state;
   
+  // Handle case when a unit with wounds/precision is provided vs legacy units
+  let unitToAdd = action.unit;
+  
+  // Check if the unit has the new required properties
+  if (unitToAdd.wounds === undefined || unitToAdd.precision === undefined) {
+    // This is a legacy unit, use createDefaultUnit to fill in missing properties
+    const defaultUnit = createDefaultUnit(unitToAdd.id, unitToAdd.name, unitToAdd.type);
+    
+    // Merge the provided unit with default values
+    unitToAdd = {
+      ...defaultUnit,
+      ...unitToAdd,
+      // Make sure durability is preserved if provided
+      durability: unitToAdd.durability || defaultUnit.durability
+    };
+  }
+  
   const newState = {
     ...state,
-    units: [...state.units, action.unit]
+    units: [...state.units, unitToAdd]
   };
   
-  return addLogEntry(newState, `Unit ${action.unit.name} (${action.unit.type}) added to the battle.`);
+  return addLogEntry(newState, `Unit ${unitToAdd.name} (${unitToAdd.type}) added to the battle.`);
 }
 
 export function handleUpdateUnit(state: GameState, action: GameAction): GameState {
@@ -88,7 +106,16 @@ export function handleUpdateUnit(state: GameState, action: GameAction): GameStat
 export function handleDamageUnit(state: GameState, action: GameAction): GameState {
   if (action.type !== 'DAMAGE_UNIT') return state;
   
-  return {
+  const unit = state.units.find(u => u.id === action.unitId);
+  if (!unit) {
+    return addErrorEntry(state, `Cannot damage unit: Unit with ID ${action.unitId} not found.`);
+  }
+  
+  // Get the wounds value from the action or default to 0
+  const addWounds = action.wounds !== undefined ? action.wounds : 0;
+  
+  // Update unit
+  const updatedState = {
     ...state,
     units: state.units.map(unit =>
       unit.id === action.unitId
@@ -97,11 +124,20 @@ export function handleDamageUnit(state: GameState, action: GameAction): GameStat
             durability: {
               ...unit.durability,
               current: Math.max(0, unit.durability.current - action.amount)
-            }
+            },
+            wounds: unit.wounds !== undefined ? unit.wounds + addWounds : addWounds
           }
         : unit
     )
   };
+  
+  // Create log message
+  let logMessage = `${unit.name} takes ${action.amount} damage`;
+  if (addWounds > 0) {
+    logMessage += ` and suffers ${addWounds} structural wound${addWounds > 1 ? 's' : ''}`;
+  }
+  
+  return addLogEntry(updatedState, logMessage);
 }
 
 export function handleRemoveUnit(state: GameState, action: GameAction): GameState {

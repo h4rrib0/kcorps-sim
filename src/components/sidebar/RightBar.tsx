@@ -1,8 +1,301 @@
 import React, { useState } from 'react';
 import { useGameState } from '../context';
-import { Unit } from '../types';
+import { Unit, Weapon, WeaponType } from '../types';
 import TabPanel from './TabPanel';
-import { generateDefaultSegments } from '../../utils/segmentUtils';
+
+// Reusable Weapon Form component
+interface WeaponFormProps {
+    weaponName: string;
+    setWeaponName: (name: string) => void;
+    weaponType: WeaponType;
+    setWeaponType: (type: WeaponType) => void;
+    weaponForce: number;
+    setWeaponForce: (force: number) => void;
+    weaponPenetration: number;
+    setWeaponPenetration: (penetration: number) => void;
+    weaponEdge: number;
+    setWeaponEdge: (edge: number) => void;
+    weaponPower: number;
+    setWeaponPower: (power: number) => void;
+    weaponPrecision: number;
+    setWeaponPrecision: (precision: number) => void;
+    weaponDifficulty: number;
+    setWeaponDifficulty: (difficulty: number) => void;
+    weaponRange: 'melee' | number;
+    setWeaponRange: (range: 'melee' | number) => void;
+    weaponArcWidth: number;
+    setWeaponArcWidth: (arcWidth: number) => void;
+    isCollapsed: boolean;
+    setIsCollapsed: (collapsed: boolean) => void;
+    onRemove?: () => void;
+    index?: number;
+}
+
+// Helper function for numeric inputs
+const NumberInput: React.FC<{
+    value: number;
+    onChange: (value: number) => void;
+    label?: string;
+    description?: string;
+    min?: number;
+    max?: number;
+    step?: number;
+}> = ({ value, onChange, label, description, min, max, step }) => {
+    return (
+        <div style={{ marginBottom: '0.75rem' }}>
+            {label && (
+                <label style={{ display: 'block', marginBottom: '0.25rem' }}>{label}</label>
+            )}
+            <input
+                type="number"
+                value={value === 0 ? '' : value}
+                onChange={(e) => {
+                    const inputValue = e.target.value;
+                    onChange(inputValue === '' ? 0 : Number(inputValue));
+                }}
+                style={{ 
+                    padding: '0.5rem',
+                    width: '100%',
+                    borderRadius: '4px',
+                    border: '1px solid #ccc'
+                }}
+                min={min}
+                max={max}
+                step={step}
+            />
+            {description && (
+                <small style={{ color: '#666', fontSize: '11px' }}>
+                    {description}
+                </small>
+            )}
+        </div>
+    );
+};
+
+const WeaponForm: React.FC<WeaponFormProps> = ({
+    weaponName, setWeaponName,
+    weaponType, setWeaponType,
+    weaponForce, setWeaponForce,
+    weaponPenetration, setWeaponPenetration,
+    weaponEdge, setWeaponEdge,
+    weaponPower, setWeaponPower,
+    weaponPrecision, setWeaponPrecision,
+    weaponDifficulty, setWeaponDifficulty,
+    weaponRange, setWeaponRange,
+    weaponArcWidth, setWeaponArcWidth,
+    isCollapsed, setIsCollapsed,
+    onRemove,
+    index
+}) => {
+    return (
+        <div style={{ 
+            marginBottom: '1rem', 
+            backgroundColor: '#f9f9f9', 
+            padding: '1rem', 
+            borderRadius: '6px',
+            border: '1px solid #e0e0e0'
+        }}>
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: isCollapsed ? 0 : '0.75rem',
+                cursor: 'pointer'
+            }}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            >
+                <h4 style={{ margin: 0 }}>
+                    {index !== undefined ? `Weapon #${index + 1}` : 'Weapon'}: {weaponName || 'New Weapon'}
+                </h4>
+                <div>
+                    {onRemove && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent collapse toggle
+                                onRemove();
+                            }}
+                            style={{
+                                marginRight: '8px',
+                                padding: '2px 8px',
+                                backgroundColor: '#f44336',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '12px'
+                            }}
+                        >
+                            Remove
+                        </button>
+                    )}
+                    <span style={{ fontSize: '18px' }}>
+                        {isCollapsed ? '▼' : '▲'}
+                    </span>
+                </div>
+            </div>
+            
+            {!isCollapsed && (
+                <>
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Weapon Name:</label>
+                        <input 
+                            type="text"
+                            value={weaponName}
+                            onChange={(e) => setWeaponName(e.target.value)}
+                            placeholder="Enter weapon name"
+                            style={{ 
+                                padding: '0.5rem',
+                                width: '100%',
+                                borderRadius: '4px',
+                                border: '1px solid #ccc'
+                            }}
+                        />
+                    </div>
+                    
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Weapon Type:</label>
+                        <select
+                            value={weaponType}
+                            onChange={(e) => setWeaponType(e.target.value as WeaponType)}
+                            style={{ 
+                                padding: '0.5rem',
+                                width: '100%',
+                                borderRadius: '4px',
+                                border: '1px solid #ccc'
+                            }}
+                        >
+                            <option value="impact">Impact (Crushing/Blunt)</option>
+                            <option value="bladed">Bladed (Cutting/Slashing)</option>
+                            <option value="ballistic">Ballistic (Ranged/Projectile)</option>
+                        </select>
+                    </div>
+                    
+                    {weaponType === 'impact' && (
+                        <NumberInput 
+                            value={weaponForce}
+                            onChange={setWeaponForce}
+                            label="Force:"
+                            description="Impact damage (only for impact weapons)"
+                        />
+                    )}
+                    
+                    {weaponType === 'ballistic' && (
+                        <NumberInput 
+                            value={weaponPenetration}
+                            onChange={setWeaponPenetration}
+                            label="Penetration:"
+                            description="Armor penetration value"
+                        />
+                    )}
+                    
+                    {weaponType === 'bladed' && (
+                        <>
+                            <NumberInput 
+                                value={weaponEdge}
+                                onChange={setWeaponEdge}
+                                label="Edge:"
+                                description="Cutting damage"
+                            />
+                            
+                            <NumberInput 
+                                value={weaponPower}
+                                onChange={setWeaponPower}
+                                label="Power:"
+                                description="Secondary force for bladed weapons"
+                            />
+                            
+                            <NumberInput 
+                                value={weaponPrecision}
+                                onChange={setWeaponPrecision}
+                                label="Precision:"
+                                description="Used for critical hits"
+                            />
+                        </>
+                    )}
+                    
+                    <NumberInput 
+                        value={weaponDifficulty}
+                        onChange={setWeaponDifficulty}
+                        label="Difficulty:"
+                        description="Added to defense target"
+                    />
+                    
+                    <div style={{ marginBottom: '0.75rem' }}>
+                        <label style={{ display: 'block', marginBottom: '0.25rem' }}>Range:</label>
+                        <select
+                            value={weaponRange === 'melee' ? 'melee' : 'ranged'}
+                            onChange={(e) => {
+                                if (e.target.value === 'melee') {
+                                    setWeaponRange('melee');
+                                } else {
+                                    setWeaponRange(3); // Default ranged value
+                                }
+                            }}
+                            style={{ 
+                                padding: '0.5rem',
+                                width: '100%',
+                                borderRadius: '4px',
+                                border: '1px solid #ccc'
+                            }}
+                        >
+                            <option value="melee">Melee (same tile)</option>
+                            <option value="ranged">Ranged</option>
+                        </select>
+                        
+                        {weaponRange !== 'melee' && (
+                            <NumberInput 
+                                value={weaponRange === 'melee' ? 0 : weaponRange as number}
+                                onChange={(value) => setWeaponRange(value)}
+                                label="Range (tiles):"
+                                min={1}
+                            />
+                        )}
+                    </div>
+                    
+                    <NumberInput 
+                        value={weaponArcWidth}
+                        onChange={setWeaponArcWidth}
+                        label="Arc Width (degrees):"
+                        description="How wide the weapon can attack (30-360°)"
+                        min={30}
+                        max={360}
+                        step={30}
+                    />
+                </>
+            )}
+        </div>
+    );
+};
+
+// Define a type for weapon form state
+interface WeaponFormState {
+    name: string;
+    type: WeaponType;
+    force: number;
+    penetration: number;
+    edge: number;
+    power: number;
+    precision: number;
+    difficulty: number;
+    range: 'melee' | number;
+    arcWidth: number;
+    isCollapsed: boolean;
+}
+
+// Function to create a default weapon form
+const createDefaultWeaponForm = (namePrefix: string = "Weapon"): WeaponFormState => ({
+    name: `${namePrefix}`,
+    type: 'impact',
+    force: 8,
+    penetration: 1,
+    edge: 0,
+    power: 0,
+    precision: 0,
+    difficulty: 1,
+    range: 'melee',
+    arcWidth: 120,
+    isCollapsed: false
+});
 
 const RightBar: React.FC = () => {
     // Unit form state with sensible defaults
@@ -12,6 +305,31 @@ const RightBar: React.FC = () => {
     const [armor, setArmor] = React.useState(2);
     const [agility, setAgility] = React.useState(2);
     const [mass, setMass] = React.useState(5);
+    const [precision, setPrecision] = React.useState(2);
+    
+    // Multiple weapons state
+    const [weapons, setWeapons] = React.useState<WeaponFormState[]>([
+        createDefaultWeaponForm("Primary Weapon")
+    ]);
+    
+    // Function to add a new weapon form
+    const addWeaponForm = () => {
+        setWeapons([...weapons, createDefaultWeaponForm(`Weapon #${weapons.length + 1}`)]);
+    };
+    
+    // Function to update a specific weapon form
+    const updateWeaponForm = (index: number, updates: Partial<WeaponFormState>) => {
+        const updatedWeapons = [...weapons];
+        updatedWeapons[index] = { ...updatedWeapons[index], ...updates };
+        setWeapons(updatedWeapons);
+    };
+    
+    // Function to remove a weapon form
+    const removeWeaponForm = (index: number) => {
+        const updatedWeapons = [...weapons];
+        updatedWeapons.splice(index, 1);
+        setWeapons(updatedWeapons);
+    };
     
     // Pilot form state with sensible defaults
     const [pilotName, setPilotName] = React.useState("");
@@ -39,66 +357,52 @@ const RightBar: React.FC = () => {
             // Generate default segments (head, core, and arms)
             const defaultDurability = durability || 10;
             const defaultArmor = armor || 2;
-            
-            // Get all segments and update IDs
-            const segments = generateDefaultSegments().slice(0, 4); // Head, Core, Left Arm, Right Arm
-            
-            // Update core segment to match unit durability and armor
-            segments[1].durability = defaultDurability;
-            segments[1].maxDurability = defaultDurability;
-            segments[1].armor = defaultArmor;
-            
-            // Ensure IDs are unique
-            segments.forEach((segment, index) => {
-                segment.id = `segment-${timestamp}-${index}`;
-            });
 
-            // Create weapons for the unit
-            const weapons = [
-                { 
-                    id: `weapon-${timestamp}-melee`,
-                    name: `${unitName}'s Melee Weapon`, 
-                    force: 8, 
-                    penetration: 1, 
+            // Create weapons from user inputs
+            const unitWeapons = weapons.map((weaponForm, index) => {
+                // Create a weapon based on the weapon form
+                return {
+                    id: `weapon-${timestamp}-${index}`,
+                    name: weaponForm.name || `${unitName}'s Weapon ${index + 1}`,
+                    type: weaponForm.type,
+                    // Apply force only for impact weapons
+                    force: weaponForm.type === 'impact' ? (weaponForm.force || 8) : undefined,
+                    // Apply penetration only for ballistic weapons
+                    penetration: weaponForm.type === 'ballistic' ? (weaponForm.penetration || 6) : undefined,
+                    // Apply edge/power/precision only for bladed weapons
+                    edge: weaponForm.type === 'bladed' ? (weaponForm.edge || 6) : undefined,
+                    power: weaponForm.type === 'bladed' ? (weaponForm.power || 4) : undefined,
+                    precision: weaponForm.type === 'bladed' ? (weaponForm.precision || 1) : undefined,
+                    difficulty: weaponForm.difficulty || 1,
+                    range: weaponForm.range || 'melee',
+                    arcWidth: weaponForm.arcWidth || 120
+                };
+            });
+            
+            // Create a backup basic weapon if no weapons were added
+            if (unitWeapons.length === 0) {
+                unitWeapons.push({ 
+                    id: `weapon-${timestamp}-backup`,
+                    name: `${unitName}'s Backup Weapon`, 
+                    type: 'impact' as const,
+                    force: 4, // Force for impact weapon
                     difficulty: 1,
                     range: 'melee',
-                    arcWidth: 120
-                },
-                { 
-                    id: `weapon-${timestamp}-ranged`,
-                    name: `${unitName}'s Ranged Weapon`, 
-                    force: 3, 
-                    penetration: 6, 
-                    difficulty: 2,
-                    range: 3,
                     arcWidth: 60
-                }
-            ];
+                });
+            }
             
             // Create subsystems for weapon mounts
-            const leftArmSubsystem = {
-                id: `subsystem-${timestamp}-leftweapon`,
-                name: 'Left Arm Weapon Mount',
+            const weaponSubsystems = unitWeapons.map((weapon, index) => ({
+                id: `subsystem-${timestamp}-weapon-${index}`,
+                name: `${weapon.name} Mount`,
                 type: 'WEAPON' as const,
                 functional: true,
                 durabilityThreshold: 40,
-                weaponId: weapons[0].id,
-                description: 'Left arm weapon mount'
-            };
+                weaponId: weapon.id,
+                description: `Mount for ${weapon.name}`
+            }));
                 
-            const rightArmSubsystem = {
-                id: `subsystem-${timestamp}-rightweapon`,
-                name: 'Right Arm Weapon Mount',
-                type: 'WEAPON' as const,
-                functional: true,
-                durabilityThreshold: 40,
-                weaponId: weapons[1].id,
-                description: 'Right arm weapon mount'
-            };
-                
-            // Link subsystems to arm segments
-            segments[2].subsystemIds = [leftArmSubsystem.id]; // Left arm
-            segments[3].subsystemIds = [rightArmSubsystem.id]; // Right arm
                 
             const newUnit: Unit = {
                 id: String(timestamp),
@@ -107,11 +411,12 @@ const RightBar: React.FC = () => {
                 durability: { current: durability || 10, max: durability || 10 }, // Default to 10 if 0
                 armor: armor || 2, // Default to 2 if 0
                 agility: agility || 2, // Default to 2 if 0
+                precision: precision || 2, // Default to 2 if 0
                 mass: mass || 5, // Default to 5 if 0
-                weapons: weapons,
+                wounds: 0, // Start with no wounds
+                weapons: unitWeapons,
                 specialMoves: defaultSpecialMoves,
-                segments: segments,
-                subsystems: [leftArmSubsystem, rightArmSubsystem],
+                subsystems: weaponSubsystems,
                 status: {}
                 // Note: no "position", so it's off‑field.
             };
@@ -123,7 +428,11 @@ const RightBar: React.FC = () => {
             setDurability(10);
             setArmor(2);
             setAgility(2);
+            setPrecision(2);
             setMass(5);
+            
+            // Reset weapons to a single default weapon
+            setWeapons([createDefaultWeaponForm("Primary Weapon")]);
         }
     };
 
@@ -203,62 +512,101 @@ const RightBar: React.FC = () => {
                         <option value="kaiju">Kaiju (Non-Pilotable)</option>
                     </select>
                 </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Durability:</label>
-                    <input
-                        type="number"
-                        value={durability}
-                        onChange={(e) => setDurability(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
+                <NumberInput 
+                    value={durability}
+                    onChange={setDurability}
+                    label="Durability:"
+                    description="Unit's health points"
+                />
+                <NumberInput 
+                    value={armor}
+                    onChange={setArmor}
+                    label="Armor:"
+                    description="Damage reduction"
+                />
+                <NumberInput 
+                    value={agility}
+                    onChange={setAgility}
+                    label="Agility:"
+                    description="Affects dodging and movement"
+                />
+                <NumberInput 
+                    value={mass}
+                    onChange={setMass}
+                    label="Mass:"
+                    description="Affects grappling and physical impact"
+                />
+                <NumberInput 
+                    value={precision}
+                    onChange={setPrecision}
+                    label="Precision:"
+                    description="Accuracy bonus for attacks"
+                />
+                
+                {/* Weapons Section */}
+                <div style={{ 
+                    marginBottom: '1rem', 
+                    backgroundColor: '#f0f0f0', 
+                    padding: '1rem', 
+                    borderRadius: '6px',
+                    border: '1px solid #ddd'
+                }}>
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center', 
+                        marginBottom: '0.75rem' 
+                    }}>
+                        <h3 style={{ margin: 0 }}>Weapons ({weapons.length})</h3>
+                        <button
+                            onClick={addWeaponForm}
+                            style={{
+                                padding: '4px 10px',
+                                backgroundColor: '#4caf50',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold',
+                                fontSize: '14px'
+                            }}
+                        >
+                            Add Weapon
+                        </button>
+                    </div>
+                    
+                    {/* Render all weapon forms */}
+                    {weapons.map((weaponForm, index) => (
+                        <WeaponForm
+                            key={index}
+                            index={index}
+                            weaponName={weaponForm.name}
+                            setWeaponName={(name) => updateWeaponForm(index, { name })}
+                            weaponType={weaponForm.type}
+                            setWeaponType={(type) => updateWeaponForm(index, { type })}
+                            weaponForce={weaponForm.force}
+                            setWeaponForce={(force) => updateWeaponForm(index, { force })}
+                            weaponPenetration={weaponForm.penetration}
+                            setWeaponPenetration={(penetration) => updateWeaponForm(index, { penetration })}
+                            weaponEdge={weaponForm.edge}
+                            setWeaponEdge={(edge) => updateWeaponForm(index, { edge })}
+                            weaponPower={weaponForm.power}
+                            setWeaponPower={(power) => updateWeaponForm(index, { power })}
+                            weaponPrecision={weaponForm.precision}
+                            setWeaponPrecision={(precision) => updateWeaponForm(index, { precision })}
+                            weaponDifficulty={weaponForm.difficulty}
+                            setWeaponDifficulty={(difficulty) => updateWeaponForm(index, { difficulty })}
+                            weaponRange={weaponForm.range}
+                            setWeaponRange={(range) => updateWeaponForm(index, { range })}
+                            weaponArcWidth={weaponForm.arcWidth}
+                            setWeaponArcWidth={(arcWidth) => updateWeaponForm(index, { arcWidth })}
+                            isCollapsed={weaponForm.isCollapsed}
+                            setIsCollapsed={(isCollapsed) => updateWeaponForm(index, { isCollapsed })}
+                            onRemove={weapons.length > 1 ? () => removeWeaponForm(index) : undefined}
+                        />
+                    ))}
                 </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Armor:</label>
-                    <input
-                        type="number"
-                        value={armor}
-                        onChange={(e) => setArmor(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Agility:</label>
-                    <input
-                        type="number"
-                        value={agility}
-                        onChange={(e) => setAgility(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Mass:</label>
-                    <input
-                        type="number"
-                        value={mass}
-                        onChange={(e) => setMass(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
+                
                 <button 
                     style={{ 
                         padding: '0.5rem 1rem', 
@@ -299,48 +647,24 @@ const RightBar: React.FC = () => {
                         }}
                     />
                 </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Aggression:</label>
-                    <input
-                        type="number"
-                        value={aggression}
-                        onChange={(e) => setAggression(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Preservation:</label>
-                    <input
-                        type="number"
-                        value={preservation}
-                        onChange={(e) => setPreservation(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
-                <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.25rem' }}>Psyche:</label>
-                    <input
-                        type="number"
-                        value={psyche}
-                        onChange={(e) => setPsyche(Number(e.target.value))}
-                        style={{ 
-                            padding: '0.5rem',
-                            width: '100%',
-                            borderRadius: '4px',
-                            border: '1px solid #ccc'
-                        }}
-                    />
-                </div>
+                <NumberInput 
+                    value={aggression}
+                    onChange={setAggression}
+                    label="Aggression:"
+                    description="Used in attack rolls"
+                />
+                <NumberInput 
+                    value={preservation}
+                    onChange={setPreservation}
+                    label="Preservation:"
+                    description="Affects defense rolls"
+                />
+                <NumberInput 
+                    value={psyche}
+                    onChange={setPsyche}
+                    label="Psyche:"
+                    description="Affects sanity rolls"
+                />
                 <div style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.25rem' }}>Sync Rate:</label>
                     <input

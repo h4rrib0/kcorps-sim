@@ -1,5 +1,5 @@
 // state.ts - Game state and actions
-import { Unit, Pilot, Segment, SpecialMove } from './models';
+import { Unit, Pilot, SpecialMove } from './models';
 import { MapData } from '../../utils/hexCalculations';
 
 export interface GameState {
@@ -7,14 +7,13 @@ export interface GameState {
   pilots: Pilot[]; // Array of all pilots
   selectedUnitId?: string;
   selectedPilotId?: string; // Currently selected pilot
-  targetUnitId?: string;
-  targetSegmentId?: string; // Currently targeted segment
+  targetUnitId?: string; // Currently targeted unit
   selectedWeaponId?: string;
   selectedSpecialMoveId?: string; // Selected special move ID
   attackMode: boolean;
   specialMoveMode: boolean; // Similar to attack mode but for special moves
   placementMode: boolean; // Whether the UI is in unit placement mode
-  segmentTargetingMode: boolean; // Whether the UI is in segment targeting mode
+  // Segment targeting removed with unified durability system
   attackableTiles: Array<{q: number, r: number}>; // Tiles that can be attacked with current weapon
   targetableTiles: Array<{q: number, r: number}>; // Tiles that can be targeted with special moves
   validPlacementTiles: Array<{q: number, r: number}>; // Tiles where units can be placed
@@ -39,7 +38,7 @@ export const initialGameState: GameState = {
   attackMode: false,
   specialMoveMode: false,
   placementMode: false,
-  segmentTargetingMode: false,
+  // Segment targeting removed with unified durability system
   attackableTiles: [],
   targetableTiles: [],
   validPlacementTiles: [],

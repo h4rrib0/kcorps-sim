@@ -13,10 +13,7 @@ const AttackPanel: React.FC = () => {
     dispatch({ type: 'SELECT_WEAPON', weaponId });
   };
 
-  // Handle segment selection from dropdown
-  const handleSegmentSelect = (segmentId: string) => {
-    dispatch({ type: 'SELECT_TARGET_SEGMENT', segmentId });
-  };
+  // Segment targeting removed with unified durability system
 
   // Handle attack execution
   const handleExecuteAttack = () => {
@@ -28,29 +25,16 @@ const AttackPanel: React.FC = () => {
     dispatch({ type: 'EXIT_ATTACK_MODE' });
   };
 
-  // Calculate total durability from segments if available
+  // Get unit durability
   const calculateDurability = (unit: any) => {
     if (!unit) return { current: 0, max: 0 };
-    
-    if (unit.segments && unit.segments.length > 0) {
-      const current = unit.segments.reduce((sum: number, segment: any) => sum + segment.durability, 0);
-      const max = unit.segments.reduce((sum: number, segment: any) => sum + segment.maxDurability, 0);
-      return { current, max };
-    }
-    
     return unit.durability || { current: 0, max: 0 };
   };
 
   // Check if attack is valid (attacker, target, and weapon are all selected)
   const isAttackValid = !!attacker && !!target && !!state.selectedWeaponId && attacker?.id !== target?.id;
 
-  // Check if the target has segments that can be targeted
-  const hasTargetableSegments = target && target.segments && target.segments.length > 0;
-
-  // Get the currently targeted segment if any
-  const targetSegment = target && state.targetSegmentId 
-    ? target.segments.find(s => s.id === state.targetSegmentId) 
-    : null;
+  // Segment targeting removed with unified durability system
 
   if (!state.attackMode) return null;
 
@@ -125,32 +109,7 @@ const AttackPanel: React.FC = () => {
         }}>
           <h4 style={{ margin: 0, borderBottom: '1px solid #ddd', paddingBottom: '5px', flexGrow: 1 }}>Target</h4>
           
-          {/* Segment targeting dropdown */}
-          {hasTargetableSegments && target && (
-            <select 
-              value={state.targetSegmentId || (target.segments.find(segment => segment.type === 'TORSO')?.id || '')} 
-              onChange={(e) => handleSegmentSelect(e.target.value)}
-              style={{
-              padding: '4px 8px',
-              fontSize: '11px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              backgroundColor: '#fff',
-              marginLeft: '8px'
-              }}
-            >
-              {target.segments.map(segment => {
-              // Mark the TORSO/core as the default target
-              const isCoreSegment = segment.type === 'TORSO';
-              return (
-                <option key={segment.id} value={segment.id}>
-                {segment.name} ({segment.durability}/{segment.maxDurability})
-                {isCoreSegment ? ' [Default]' : ' [+3 Difficulty]'}
-                </option>
-              );
-              })}
-            </select>
-          )}
+          {/* Segment targeting removed with unified durability system */}
         </div>
         
         {target ? (
@@ -187,17 +146,7 @@ const AttackPanel: React.FC = () => {
                 HP: {targetDurability.current}/{targetDurability.max} | 
                 Armor: {target.armor}
               </p>
-              {targetSegment && (
-                <p style={{ 
-                  margin: '2px 0 0 0', 
-                  fontSize: '12px',
-                  backgroundColor: '#e8f5e9',
-                  padding: '2px 4px',
-                  borderRadius: '2px' 
-                }}>
-                  Targeting: {targetSegment.name} ({targetSegment.durability}/{targetSegment.maxDurability})
-                </p>
-              )}
+              {/* Segment targeting info removed with unified durability system */}
             </div>
           </div>
         ) : (

@@ -1,5 +1,5 @@
 // actions.ts - Action types for the game reducer
-import { Position, Unit, Pilot, Segment, Subsystem } from './models';
+import { Position, Unit, Pilot, Subsystem } from './models';
 import { TerrainType, MapData, HexCoord } from '../../utils/hexCalculations';
 import { GameState } from './state';
 
@@ -14,8 +14,7 @@ export type GameAction =
   | { type: 'MOVE_UNIT'; unitId: string; position: Position }
   | { type: "MOVE_UNIT_FORWARD"; unitId: string }
   | { type: "MOVE_UNIT_BACKWARD"; unitId: string }
-  | { type: 'DAMAGE_UNIT'; unitId: string; amount: number }
-  | { type: 'DAMAGE_SEGMENT'; unitId: string; segmentId: string; amount: number }
+  | { type: 'DAMAGE_UNIT'; unitId: string; amount: number; wounds?: number }
   | { type: 'TOGGLE_SUBSYSTEM'; unitId: string; subsystemId: string; functional: boolean }
   | { type: 'APPLY_STATUS'; unitId: string; status: keyof Unit['status'] }
   | { type: 'APPLY_PILOT_STATUS'; pilotId: string; status: keyof Pilot['status'] }
@@ -39,15 +38,12 @@ export type GameAction =
   | { type: 'EXIT_ATTACK_MODE' }
   | { type: 'ENTER_SPECIAL_MOVE_MODE'; unitId: string; sourceType: 'unit' | 'pilot' }
   | { type: 'EXIT_SPECIAL_MOVE_MODE' }
-  | { type: 'ENTER_SEGMENT_TARGETING_MODE'; unitId: string }
-  | { type: 'EXIT_SEGMENT_TARGETING_MODE' }
+  // Segment targeting removed with unified durability system
   | { type: 'SELECT_TARGET'; unitId: string }
-  | { type: 'SELECT_TARGET_SEGMENT'; segmentId: string }
+  // Segment targeting removed with unified durability system
   | { type: 'SELECT_WEAPON'; weaponId: string }
   | { type: 'SELECT_SPECIAL_MOVE'; moveId: string }
-  | { type: 'ADD_SEGMENT'; unitId: string; segment: Segment }
-  | { type: 'REMOVE_SEGMENT'; unitId: string; segmentId: string }
-  | { type: 'ADD_SUBSYSTEM'; unitId: string; segmentId: string; subsystem: Subsystem }
+  | { type: 'ADD_SUBSYSTEM'; unitId: string; subsystem: Subsystem }
   | { type: 'REMOVE_SUBSYSTEM'; unitId: string; subsystemId: string }
   | { type: 'EXECUTE_ATTACK' }
   | { type: 'EXECUTE_SPECIAL_MOVE'; moveData?: { id: string; name: string; effect: string; targeting: string } }

@@ -16,27 +16,23 @@ export interface SpecialMove {
   range?: number; // Range in tiles if targeting is not 'self'
 }
 
+export type WeaponType = 'impact' | 'bladed' | 'ballistic';
+
 export interface Weapon {
   id: string;
   name: string;
-  force: number; // Replaces damage, discounted by defender's mass
-  penetration: number; // Discounted by defender's armor
-  difficulty: number; // Subtracted from attack roll
+  type: WeaponType;
+  // Damage stats
+  force: number; // Impact force damage
+  edge?: number; // Cutting damage for bladed weapons
+  power?: number; // Secondary force for bladed weapons
+  precision?: number; // Used for crits with bladed weapons
+  penetration?: number; // For ballistic weapons
+  // Attack stats
+  difficulty: number; // Added to defense target
   range: 'melee' | number; // 'melee' for same-tile, or number of tiles
   arcWidth?: number; // Width of attack arc in degrees (defaults to 60 if not specified)
   special?: string; // Special effects as text for GM reference
-}
-
-export type SegmentType = 'HEAD' | 'TORSO' | 'ARM_LEFT' | 'ARM_RIGHT' | 'LEG_LEFT' | 'LEG_RIGHT' | 'TAIL' | 'WING_LEFT' | 'WING_RIGHT';
-
-export interface Segment {
-  id: string;
-  name: string;
-  type: SegmentType;
-  durability: number;
-  maxDurability: number;
-  armor: number; // Segment-specific armor value
-  subsystemIds: string[]; // IDs of subsystems attached to this segment
 }
 
 export type SubsystemType = 'WEAPON' | 'SENSOR' | 'MOBILITY' | 'SHIELD' | 'POWER' | 'LIFE_SUPPORT' | 'COMMS';
@@ -46,7 +42,7 @@ export interface Subsystem {
   name: string;
   type: SubsystemType;
   functional: boolean;
-  durabilityThreshold: number; // % of segment durability below which subsystem is damaged
+  durabilityThreshold: number; // % of unit durability below which subsystem is damaged
   weaponId?: string; // If the subsystem is a weapon mount
   effect?: string; // Description of special effect when active
   description: string;
@@ -73,17 +69,17 @@ export interface Unit {
   name: string;
   type: 'mecha' | 'kaiju'; // Only two unit types: Mecha (pilotable) and Kaiju (non-pilotable)
   position?: Position;
-  // Overall durability is now derived from segments
-  durability?: {
+  durability: {
     current: number;
     max: number;
   };
+  wounds: number; // Number of structural wounds (reduces effective armor)
   armor: number; // Base armor value
   agility: number;
+  precision: number; // New stat for targeting
   mass: number;
   weapons: Weapon[];
-  segments: Segment[]; // New segments array
-  subsystems: Subsystem[]; // Changed from old subsystem type to new one
+  subsystems: Subsystem[]; // Subsystems attached directly to the unit
   specialMoves: SpecialMove[]; // Unit-specific special abilities
   pilotId?: string; // Reference to the pilot (only for Mecha type)
   status: {
@@ -93,5 +89,4 @@ export interface Unit {
     stunned?: boolean;
     prone?: boolean; // Added for special moves like "Take Aim"
   };
-  selectedSegmentId?: string; // Currently targeted segment
 }
