@@ -8,6 +8,7 @@ import SpecialMovePanel from './components/combat/SpecialMovePanel';
 import LogPanel from './components/combat/LogPanel';
 import MapSelector from './components/maps/MapSelector';
 import StateManagement from './components/maps/StateManagement';
+import { CombatResultsPopup } from './components/combat/CombatResultsPopup';
 import { GameStateProvider, useGameState } from './components/context';
 import { HexCoord } from './utils/hexCalculations';
 
@@ -144,6 +145,9 @@ function AppContent() {
 
       {/* Right sidebar with tabs */}
       <RightBar />
+      
+      {/* Combat Results Popup */}
+      <CombatResultsPopup />
     </div>
   );
 }

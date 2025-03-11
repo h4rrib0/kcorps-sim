@@ -2,24 +2,20 @@
 import { GameState } from '../state';
 
 // Helper function to add log entries
-export function addLogEntry(state: GameState, message: string): GameState {
+export function addLogEntry(state: GameState, message: string, type: 'info' | 'error' | 'combat' | 'system' = 'info'): GameState {
   const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const formattedMessage = `[${timestamp}] ${message}`;
   return {
     ...state,
-    log: [...state.log, formattedMessage],
+    log: [...state.log, { message: message, type }],
     error: undefined // Clear any errors when adding a log entry
   };
 }
 
 // Helper function to add error messages
 export function addErrorEntry(state: GameState, errorMessage: string): GameState {
-  // Also add to log with a different format to distinguish errors
-  const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const formattedMessage = `[${timestamp}] ERROR: ${errorMessage}`;
   return {
     ...state,
-    log: [...state.log, formattedMessage],
+    log: [...state.log, { message: errorMessage, type: 'error' }],
     error: errorMessage
   };
 }

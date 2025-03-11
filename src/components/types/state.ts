@@ -20,9 +20,13 @@ export interface GameState {
   turn: number;
   phase: 'movement' | 'action' | 'special' | 'end';
   initiativeOrder: string[]; // Array of unit IDs
-  log: string[];
+  log: Array<{message: string, type: 'info' | 'error' | 'combat' | 'system'}>; // Log entries with types
   error?: string; // Optional error message for UI display
   showLog: boolean; // Whether to show the log panel
+  
+  // Combat popup related
+  showCombatPopup: boolean;
+  combatDetails?: any; // Will hold detailed combat results
   
   // Map related
   maps: MapData[];
@@ -45,8 +49,11 @@ export const initialGameState: GameState = {
   turn: 1,
   phase: 'movement',
   initiativeOrder: [],
-  log: [],
+  log: [] as Array<{message: string, type: 'info' | 'error' | 'combat' | 'system'}>,
   showLog: true,
+  
+  // Combat popup related
+  showCombatPopup: false,
   
   // Map related
   maps: [

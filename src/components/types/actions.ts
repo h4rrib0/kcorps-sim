@@ -20,7 +20,7 @@ export type GameAction =
   | { type: 'APPLY_PILOT_STATUS'; pilotId: string; status: keyof Pilot['status'] }
   | { type: 'REMOVE_STATUS'; unitId: string; status: keyof Unit['status'] }
   | { type: 'REMOVE_PILOT_STATUS'; pilotId: string; status: keyof Pilot['status'] }
-  | { type: 'LOG_ACTION'; message: string }
+  | { type: 'LOG_ACTION'; message: string; logType?: 'info' | 'error' | 'combat' | 'system' }
   | { type: 'TOGGLE_LOG' }
   | { type: 'ADD_UNIT'; unit: Unit }
   | { type: 'REMOVE_UNIT'; unitId: string }
@@ -48,6 +48,9 @@ export type GameAction =
   | { type: 'EXECUTE_ATTACK' }
   | { type: 'EXECUTE_SPECIAL_MOVE'; moveData?: { id: string; name: string; effect: string; targeting: string } }
   | { type: 'NEXT_TURN' }
+  // Combat popup related actions
+  | { type: 'SHOW_COMBAT_POPUP'; details: any }
+  | { type: 'HIDE_COMBAT_POPUP' }
   // Map-related actions
   | { type: 'ENTER_EDITOR_MODE' }
   | { type: 'EXIT_EDITOR_MODE' }

@@ -108,19 +108,29 @@ export function calculateImpactDamage(
   let newWounds = 0;
   let woundDescription = '';
   
-  if (weapon.force > defender.armor) {
-    newWounds = 1;
-    woundDescription = ' The force creates a structural wound!';
-    
-    // Additional wound chance
-    const additionalWoundChance = (weapon.force - defender.armor) / defender.armor;
-    if (Math.random() < additionalWoundChance) {
-      newWounds += 1;
-      woundDescription = ' The force creates multiple structural wounds!';
+  // Check if unit already has maximum wounds
+  const canAddWounds = defender.wounds < defender.armor;
+  
+  if (canAddWounds) {
+    if (weapon.force > defender.armor) {
+      newWounds = 1;
+      woundDescription = ' The force creates a structural wound!';
+      
+      // Check if there's room for a second wound
+      if (defender.wounds + 1 < defender.armor) {
+        // Additional wound chance
+        const additionalWoundChance = (weapon.force - defender.armor) / defender.armor;
+        if (Math.random() < additionalWoundChance) {
+          newWounds += 1;
+          woundDescription = ' The force creates multiple structural wounds!';
+        }
+      }
+    } else if (Math.random() < woundChance) {
+      newWounds = 1;
+      woundDescription = ' The impact creates a structural wound!';
     }
-  } else if (Math.random() < woundChance) {
-    newWounds = 1;
-    woundDescription = ' The impact creates a structural wound!';
+  } else {
+    woundDescription = ' The unit cannot take any more structural wounds!';
   }
   
   return {
@@ -150,18 +160,29 @@ export function calculateBladedDamage(
   let newWounds = 0;
   let description = '';
   
+  // Check if unit already has maximum wounds
+  const canAddWounds = defender.wounds < defender.armor;
+  
   // Critical hit check
   if ((successMargin + precision) > effectiveArmor) {
     // Double damage on critical hit
     damage = edge * 2;
-    newWounds = 1;
-    description = `Critical hit! Blade slips through a weak point for ${damage} damage and creates a structural wound!`;
+    if (canAddWounds) {
+      newWounds = 1;
+      description = `Critical hit! Blade slips through a weak point for ${damage} damage and creates a structural wound!`;
+    } else {
+      description = `Critical hit! Blade slips through a weak point for ${damage} damage but cannot create more structural wounds!`;
+    }
   }
   // Regular hit check
   else if ((successMargin + power) > effectiveArmor) {
     damage = edge;
-    newWounds = 1;
-    description = `Blade cuts through for ${damage} damage and creates a structural wound!`;
+    if (canAddWounds) {
+      newWounds = 1;
+      description = `Blade cuts through for ${damage} damage and creates a structural wound!`;
+    } else {
+      description = `Blade cuts through for ${damage} damage but cannot create more structural wounds!`;
+    }
   }
   // Glancing blow, just apply power as impact
   else {

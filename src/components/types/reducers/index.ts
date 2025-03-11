@@ -188,7 +188,21 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
       return handleUnplaceUnit(state, action);
     
     case 'LOG_ACTION':
-      return addLogEntry(state, action.message);
+      return addLogEntry(state, action.message, action.logType || 'info');
+      
+    case 'SHOW_COMBAT_POPUP':
+      return {
+        ...state,
+        showCombatPopup: true,
+        combatDetails: action.details
+      };
+      
+    case 'HIDE_COMBAT_POPUP':
+      return {
+        ...state,
+        showCombatPopup: false,
+        combatDetails: undefined
+      };
     
     case 'TOGGLE_LOG':
       return {

@@ -225,8 +225,58 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
       };
     }
     
-    // Update wounds
-    const newWounds = defender.wounds + damageResult.newWounds;
+    // Update wounds - cap at armor value
+    const newWounds = Math.min(defender.armor, defender.wounds + damageResult.newWounds);
+    
+    // Create detailed combat results for popup
+    const combatDetails = {
+      title: attackResult.success ? "Attack Hit!" : "Attack Missed!",
+      attackerName: attacker.name,
+      defenderName: defender.name,
+      weaponName: weapon.name,
+      attackRoll: attackResult.roll,
+      attackerPrecision: attacker.precision,
+      attackTotal: attackResult.attackValue,
+      defenderAgility: defender.agility,
+      defenderDifficulty: weapon.difficulty,
+      defenseTotal: attackResult.defenseValue,
+      successMargin: attackResult.success ? attackResult.successMargin : 0,
+      success: attackResult.success,
+      description: attackResult.success 
+        ? `${attacker.name} attacks ${defender.name} with ${weapon.name} and hits! ` +
+          damageResult.description
+        : `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses!`
+    };
+    
+    // For successful attacks, add damage details
+    if (attackResult.success) {
+      combatDetails.damage = damageResult.damage;
+      combatDetails.newWounds = damageResult.newWounds;
+      combatDetails.durabilityBefore = defender.durability.current;
+      combatDetails.durabilityAfter = newDurability;
+      
+      // Track affected subsystems
+      const affectedSubsystems: string[] = [];
+      updatedSubsystems.forEach((subsystem, i) => {
+        if (subsystem.functional !== defender.subsystems[i].functional && !subsystem.functional) {
+          affectedSubsystems.push(subsystem.name);
+        }
+      });
+      
+      if (affectedSubsystems.length > 0) {
+        combatDetails.subsystemsAffected = affectedSubsystems;
+      }
+      
+      // Track status effects
+      const newStatusEffects: string[] = [];
+      if (damageResult.statusEffect) {
+        newStatusEffects.push(damageResult.statusEffect);
+      }
+      
+      if (newStatusEffects.length > 0) {
+        combatDetails.statusEffects = newStatusEffects;
+      }
+    }
     
     // Update the units with the new state
     const updatedState = {
@@ -248,27 +298,50 @@ export function handleExecuteAttack(state: GameState, action: GameAction): GameS
       attackMode: false,
       targetUnitId: undefined,
       selectedWeaponId: undefined,
-      attackableTiles: []
+      attackableTiles: [],
+      // Show combat popup with details
+      showCombatPopup: true,
+      combatDetails
     };
     
     // Add the log entry with the attack result
-    return addLogEntry(updatedState, resultMessage);
+    return addLogEntry(updatedState, resultMessage, 'combat');
   } else {
     // Miss message
     resultMessage = `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses! ` +
       `(Roll: ${attackResult.roll} + ${attacker.precision} = ${attackResult.attackValue} vs ${attackResult.defenseValue})`;
   
+    // Create combat details for miss popup
+    const combatDetails = {
+      title: "Attack Missed!",
+      attackerName: attacker.name,
+      defenderName: defender.name,
+      weaponName: weapon.name,
+      attackRoll: attackResult.roll,
+      attackerPrecision: attacker.precision,
+      attackTotal: attackResult.attackValue,
+      defenderAgility: defender.agility,
+      defenderDifficulty: weapon.difficulty,
+      defenseTotal: attackResult.defenseValue,
+      successMargin: 0,
+      success: false,
+      description: `${attacker.name} attacks ${defender.name} with ${weapon.name} but misses!`
+    };
+    
     // Exit attack mode without applying damage
     const updatedState = {
       ...state,
       attackMode: false,
       targetUnitId: undefined,
       selectedWeaponId: undefined,
-      attackableTiles: []
+      attackableTiles: [],
+      // Show combat popup with miss details
+      showCombatPopup: true,
+      combatDetails
     };
     
     // Add the log entry with the attack result
-    return addLogEntry(updatedState, resultMessage);
+    return addLogEntry(updatedState, resultMessage, 'combat');
   }
 }
 

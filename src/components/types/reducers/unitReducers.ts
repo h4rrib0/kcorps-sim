@@ -125,7 +125,11 @@ export function handleDamageUnit(state: GameState, action: GameAction): GameStat
               ...unit.durability,
               current: Math.max(0, unit.durability.current - action.amount)
             },
-            wounds: unit.wounds !== undefined ? unit.wounds + addWounds : addWounds
+            // Cap wounds to not exceed armor
+            wounds: Math.min(
+              unit.armor, 
+              unit.wounds !== undefined ? unit.wounds + addWounds : addWounds
+            )
           }
         : unit
     )

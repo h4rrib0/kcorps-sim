@@ -95,24 +95,47 @@ const LogPanel: React.FC<LogPanelProps> = ({
       <hr style={{ borderColor: '#ffc107', opacity: 0.3, margin: '0 0 10px 0' }} />
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {state.log.map((entry, index) => (
-          <div 
-            key={index}
-            style={{
-              padding: '4px 8px',
-              backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-              borderLeft: entry.includes('ERROR:') ? '3px solid #ff5252' : 
-                         entry.includes('failed') ? '3px solid #dc3545' : 
-                         '3px solid #28a745',
-              fontSize: '13px',
-              lineHeight: '1.3',
-              color: entry.includes('ERROR:') ? '#ff5252' : 'inherit',
-              fontWeight: entry.includes('ERROR:') ? 'bold' : 'normal'
-            }}
-          >
-            {entry}
-          </div>
-        ))}
+        {state.log.map((entry, index) => {
+          // Define styling based on entry type
+          const getBorderColor = (type: string) => {
+            switch(type) {
+              case 'error': return '#ff5252';
+              case 'combat': return '#ffc107';
+              case 'system': return '#2196f3';
+              case 'info':
+              default: return '#28a745';
+            }
+          };
+          
+          const getTextColor = (type: string) => {
+            switch(type) {
+              case 'error': return '#ff5252';
+              case 'combat': return '#ffc107';
+              case 'system': return '#2196f3';
+              case 'info':
+              default: return 'inherit';
+            }
+          };
+          
+          const isBold = entry.type === 'error' || entry.type === 'combat';
+          
+          return (
+            <div 
+              key={index}
+              style={{
+                padding: '4px 8px',
+                backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+                borderLeft: `3px solid ${getBorderColor(entry.type)}`,
+                fontSize: '13px',
+                lineHeight: '1.3',
+                color: getTextColor(entry.type),
+                fontWeight: isBold ? 'bold' : 'normal'
+              }}
+            >
+              {entry.message}
+            </div>
+          );
+        })}
         <div ref={logEndRef} />
       </div>
     </div>
